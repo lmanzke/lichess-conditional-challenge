@@ -12,7 +12,6 @@ export default {
   components: { QueryBuilder },
   methods: {
     handleRuleChange(newRules) {
-      console.log(newRules);
       chrome.storage.sync.set({ lichessTeamRules: JSON.stringify(newRules) });
     },
   },
