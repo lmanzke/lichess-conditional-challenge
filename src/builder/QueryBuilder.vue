@@ -6,9 +6,8 @@
 
 <script>
 import $ from 'jquery';
+import 'jQuery-QueryBuilder';
 
-// eslint-disable-next-line no-unused-vars
-import queryBuilderPlugin from 'jQuery-QueryBuilder';
 export default {
   name: 'QueryBuilder',
   props: {
@@ -19,21 +18,6 @@ export default {
   computed: {
     rulesProp() {
       return this.options.rules;
-    },
-  },
-  methods: {
-    setRules() {
-      const container = $(this.$refs.queryBuilderContainer);
-      container.queryBuilder('setRules', {
-        condition: 'AND',
-        rules: [
-          {
-            id: 'team-name',
-            operator: 'equal',
-            value: 'team-huschi',
-          },
-        ],
-      });
     },
   },
   mounted() {
