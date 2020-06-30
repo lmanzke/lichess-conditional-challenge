@@ -1,0 +1,32 @@
+{
+  "name": "team-challenge",
+  "description": "A vue.js web extension that allows choosing by team",
+  "version": "1.0.0",
+  "manifest_version": 2,
+  "icons": {
+    "48": "icons/icon_48.png",
+    "128": "icons/icon_128.png"
+  },
+  "browser_action": {
+    "default_title": "team-challenge"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.lichess.org/*", "*://lichess.org/*"],
+      "js": ["challenge/challenge.js"],
+      "css": ["challenge/challenge.css"]
+    }
+  ],
+  "permissions": [
+    "storage"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "chrome_style": true
+  }
+}
