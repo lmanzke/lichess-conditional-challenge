@@ -4,9 +4,7 @@ export const andSpec = (spec1, spec2) => ({
     if (!firstResult) {
       return false;
     }
-    const secondResult = await spec2.isSatisfied(challenge);
-
-    return firstResult && secondResult;
+    return spec2.isSatisfied(challenge);
   },
 });
 
@@ -16,10 +14,7 @@ export const orSpec = (spec1, spec2) => ({
     if (firstResult) {
       return true;
     }
-    const secondResult = await spec2.isSatisfied(challenge);
-    console.log(secondResult);
-
-    return firstResult || secondResult;
+    return spec2.isSatisfied(challenge);
   },
 });
 

@@ -1,7 +1,7 @@
 import { HTTP } from './axios';
-import {splitRandomElement, sumArray} from './utils';
+import { splitRandomElement, sumArray } from './utils';
 import { compare, mapOperator } from './operators';
-import {anySpec, applyCondition} from './spec';
+import { anySpec, applyCondition } from './spec';
 
 const extractNumEncounters = html => {
   const div = document.createElement('div');
