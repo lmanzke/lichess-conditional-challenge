@@ -30,7 +30,6 @@ export default {
       try {
         const lichessPrefs = await getLichessPrefs();
         const spec = convertRule(lichessPrefs);
-        console.log(lichessPrefs, spec);
 
         const challengeInfo = getChallengeInfos(challengeElement);
         const challenge = await processChallenges(challengeInfo, spec);
