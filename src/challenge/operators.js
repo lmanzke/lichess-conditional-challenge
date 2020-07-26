@@ -16,6 +16,8 @@ export const mapOperator = operator => {
       return 'NIN';
     case 'in':
       return 'IN';
+    case 'between':
+      return 'BETW';
   }
 };
 
@@ -34,6 +36,11 @@ export const compare = (relation, value) => candidate => {
         return value.split(';').includes(candidate);
       }
       return value.includes(candidate);
+    case 'BETW':
+      if (!Array.isArray(value)) {
+        return false;
+      }
+      return candidate >= Math.min(...value) && candidate <= Math.max(...value);
     case 'NEQ':
       return value !== candidate;
     case 'NIN':

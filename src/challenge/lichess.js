@@ -31,15 +31,25 @@ export const encounterSpec = (value, operator) => ({
   },
 });
 
+export const ratingSpec = (value, operator) => ({
+  isSatisfied: async challenge => {
+    return compare(operator, value)(challenge.rating);
+  },
+});
+
 export const getChallengeElement = container => {
   return container.getElementsByClassName('challenges')[0];
 };
+
+const ratingRegex = /(.)+\((?<rating>[1-9]+[0-9]+)\)+$/;
 
 export const getChallengeInfos = challengeContainerElement => {
   return Array.from(challengeContainerElement.getElementsByClassName('challenge')).map(v => {
     const userLink = v.getElementsByClassName('user-link')[0].attributes.href.value;
     const userLinkParts = userLink.split('/');
     const username = userLinkParts[userLinkParts.length - 1];
+    const ratingText = v.getElementsByTagName('name')[0].innerText.trim();
+    const rating = parseInt(ratingRegex.exec(ratingText).groups.rating);
     const acceptButton = v.getElementsByClassName('accept')[0];
     const declineButton = v.getElementsByClassName('decline')[0];
 
@@ -51,7 +61,7 @@ export const getChallengeInfos = challengeContainerElement => {
       declineButton.click();
     };
 
-    return { userLink, username, accept, decline };
+    return { userLink, username, accept, decline, rating };
   });
 };
 
@@ -85,6 +95,8 @@ export const convertRule = rule => {
       return teamSpec(rule.value, mapOperator(rule.operator));
     case 'encounters':
       return encounterSpec(rule.value, mapOperator(rule.operator));
+    case 'rating':
+      return ratingSpec(rule.value, mapOperator(rule.operator));
   }
 
   return anySpec;
