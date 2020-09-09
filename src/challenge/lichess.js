@@ -41,7 +41,17 @@ export const getChallengeElement = container => {
   return container.getElementsByClassName('challenges')[0];
 };
 
-const ratingRegex = /(.)+\((?<rating>[1-9]+[0-9]+)\)+$/;
+const ratingRegex = /(.)+\((?<rating>[1-9]+[0-9]+)(\?)*\)+$/;
+
+const getRating = ratingText => {
+  const regexResult = ratingRegex.exec(ratingText);
+
+  if (!regexResult) {
+    return 0;
+  }
+
+  return parseInt(regexResult.groups.rating);
+};
 
 export const getChallengeInfos = challengeContainerElement => {
   return Array.from(challengeContainerElement.getElementsByClassName('challenge')).map(v => {
@@ -49,7 +59,7 @@ export const getChallengeInfos = challengeContainerElement => {
     const userLinkParts = userLink.split('/');
     const username = userLinkParts[userLinkParts.length - 1];
     const ratingText = v.getElementsByTagName('name')[0].innerText.trim();
-    const rating = parseInt(ratingRegex.exec(ratingText).groups.rating);
+    const rating = getRating(ratingText);
     const acceptButton = v.getElementsByClassName('accept')[0];
     const declineButton = v.getElementsByClassName('decline')[0];
 
