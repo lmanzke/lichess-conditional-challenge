@@ -1,5 +1,5 @@
 import { HTTP } from './axios';
-import { splitRandomElement, sumArray } from './utils';
+import { headTail, splitRandomElement, sumArray } from './utils';
 import { compare, mapOperator } from './operators';
 import { anySpec, applyCondition } from './spec';
 
@@ -75,22 +75,52 @@ export const getChallengeInfos = challengeContainerElement => {
   });
 };
 
-export const processChallenges = async (challenges, spec) => {
-  const { current, other } = splitRandomElement(challenges);
-  if (current === null) {
-    return null;
-  }
+const createChallengeProcessor = (matcher, followup, splitter) => {
+  const rec = async (collection, results = []) => {
+    const { current, other } = splitter(collection);
+    if (!current) {
+      return results;
+    }
 
-  const filterResult = await spec.isSatisfied(current);
+    const result = await matcher(current);
 
-  if (filterResult) {
-    return current;
-  }
+    const matched = result ? results.concat([current]) : results;
+    const shouldContinue = await followup(result, current, matched);
 
-  current.decline();
+    if (!shouldContinue) {
+      return matched;
+    }
 
-  return processChallenges(other, spec);
+    return rec(other, matched);
+  };
+
+  return rec;
 };
+
+export const declineUnmatchingFactory = spec =>
+  createChallengeProcessor(
+    async challenge => {
+      const result = await spec.isSatisfied(challenge);
+
+      return !result;
+    },
+    async () => true,
+    headTail
+  );
+
+export const processChallengesFactory = spec =>
+  createChallengeProcessor(
+    challenge => spec.isSatisfied(challenge),
+    async (result, current) => {
+      if (!result) {
+        current.decline();
+        return true;
+      }
+
+      return false;
+    },
+    splitRandomElement
+  );
 
 export const convertRule = rule => {
   if (typeof rule.condition !== 'undefined') {

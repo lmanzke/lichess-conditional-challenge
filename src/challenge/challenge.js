@@ -19,7 +19,7 @@ function init(container) {
 function loadContainer() {
   const e = document.getElementById(CHALLENGE_MENU_TOGGLE_ID);
   if (!e) {
-    console.error('lichessARC could not find challenge menu toggle (element with id ' + CHALLENGE_MENU_TOGGLE_ID + ')');
+    console.error('Could not find challenge menu toggle (element with id ' + CHALLENGE_MENU_TOGGLE_ID + ')');
   }
   e.click(); // open challanges menu
   e.click(); // close challanges menu
@@ -27,7 +27,7 @@ function loadContainer() {
 function initWhenContainerLoaded() {
   var container = document.getElementById(CHALLENGES_CONTAINER_ID);
   if (!container) {
-    console.error('lichessARC could not find challenges container (element with id ' + CHALLENGES_CONTAINER_ID + ')');
+    console.error('Could not find challenges container (element with id ' + CHALLENGES_CONTAINER_ID + ')');
   }
   if (container.className.indexOf('rendered') > 0) {
     const element = init(container);
