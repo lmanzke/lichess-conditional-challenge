@@ -33,7 +33,19 @@ export const encounterSpec = (value, operator) => ({
 
 export const ratingSpec = (value, operator) => ({
   isSatisfied: async challenge => {
-    return compare(operator, value)(challenge.rating);
+    return compare(operator, value)(challenge.challenger.rating);
+  },
+});
+
+export const ratedSpec = (value, operator) => ({
+  isSatisfied: async challenge => {
+    return compare(operator, !!value)(challenge.rated);
+  },
+});
+
+export const variantSpec = (value, operator) => ({
+  isSatisfied: async challenge => {
+    return compare(operator, value)(challenge.variant.key);
   },
 });
 
@@ -41,25 +53,22 @@ export const getChallengeElement = container => {
   return container.getElementsByClassName('challenges')[0];
 };
 
-const ratingRegex = /(.)+\((?<rating>[1-9]+[0-9]+)(\?)*\)+$/;
+const getChallengeInfo = async () => {
+  const response = await HTTP.get('/challenge', { headers: { accept: 'application/vnd.lichess.v5+json', 'x-requested-with': 'XMLHttpRequest' } });
 
-const getRating = ratingText => {
-  const regexResult = ratingRegex.exec(ratingText);
-
-  if (!regexResult) {
-    return 0;
-  }
-
-  return parseInt(regexResult.groups.rating);
+  return Object.fromEntries(response.data.in.map(v => [v.id, v]));
 };
 
-export const getChallengeInfos = challengeContainerElement => {
+export const getChallengeInfos = async challengeContainerElement => {
+  const remoteChallengeInfo = await getChallengeInfo();
+
   return Array.from(challengeContainerElement.getElementsByClassName('challenge')).map(v => {
     const userLink = v.getElementsByClassName('user-link')[0].attributes.href.value;
     const userLinkParts = userLink.split('/');
     const username = userLinkParts[userLinkParts.length - 1];
-    const ratingText = v.getElementsByTagName('name')[0].innerText.trim();
-    const rating = getRating(ratingText);
+    const form = v.getElementsByTagName('form')[0];
+    const action = form.attributes.action.value;
+    const id = action.split('/')[2];
     const acceptButton = v.getElementsByClassName('accept')[0];
     const declineButton = v.getElementsByClassName('decline')[0];
 
@@ -71,7 +80,7 @@ export const getChallengeInfos = challengeContainerElement => {
       declineButton.click();
     };
 
-    return { userLink, username, accept, decline, rating };
+    return { id, userLink, username, accept, decline, ...remoteChallengeInfo[id] };
   });
 };
 
@@ -137,6 +146,10 @@ export const convertRule = rule => {
       return encounterSpec(rule.value, mapOperator(rule.operator));
     case 'rating':
       return ratingSpec(rule.value, mapOperator(rule.operator));
+    case 'rated':
+      return ratedSpec(rule.value, mapOperator(rule.operator));
+    case 'variant':
+      return variantSpec(rule.value, mapOperator(rule.operator));
   }
 
   return anySpec;

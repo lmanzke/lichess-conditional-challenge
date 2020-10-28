@@ -1,6 +1,6 @@
 <template>
   <div class="extender">
-    <button class="fbt" @click="team">Apply extension preferences</button>
+    <button class="fbt" @click="team">Accept matching challenge</button>
     <button class="fbt" @click="declineAll">Decline all unmatching</button>
   </div>
 </template>
@@ -27,7 +27,7 @@ export default {
         const lichessPrefs = await getLichessPrefs();
         const spec = convertRule(lichessPrefs);
 
-        const challengeInfo = getChallengeInfos(challengeElement);
+        const challengeInfo = await getChallengeInfos(challengeElement);
         const challengeProcessor = processChallengesFactory(spec);
         const matchingChallenges = await challengeProcessor(challengeInfo);
 
@@ -50,7 +50,7 @@ export default {
         const lichessPrefs = await getLichessPrefs();
         const spec = convertRule(lichessPrefs);
 
-        const challengeInfo = getChallengeInfos(challengeElement);
+        const challengeInfo = await getChallengeInfos(challengeElement);
         const challengeProcessor = declineUnmatchingFactory(spec);
         const unmatchedChallenges = await challengeProcessor(challengeInfo);
 
