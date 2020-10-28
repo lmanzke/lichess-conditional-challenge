@@ -33,9 +33,9 @@ export const compare = (relation, value) => candidate => {
       return value <= candidate;
     case 'IN':
       if (!Array.isArray(value)) {
-        return value.split(';').includes(candidate);
+        return value.split(';').includes(candidate.toString());
       }
-      return value.includes(candidate);
+      return value.map(v => v.toString()).includes(candidate.toString());
     case 'BETW':
       if (!Array.isArray(value)) {
         return false;
@@ -45,9 +45,9 @@ export const compare = (relation, value) => candidate => {
       return value !== candidate;
     case 'NIN':
       if (!Array.isArray(value)) {
-        return !value.split(';').includes(candidate);
+        return !value.split(';').includes(candidate.toString());
       }
-      return !value.includes(candidate);
+      return !value.map(v => v.toString()).includes(candidate.toString());
     case 'EQ':
     default:
       return value === candidate;

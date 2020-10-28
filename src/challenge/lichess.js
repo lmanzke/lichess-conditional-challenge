@@ -3,7 +3,7 @@ import { headTail, splitRandomElement, sumArray } from './utils';
 import { compare, mapOperator } from './operators';
 import { anySpec, applyCondition } from './spec';
 
-const extractNumEncounters = html => {
+export const extractNumEncounters = html => {
   const div = document.createElement('div');
   div.innerHTML = html;
 
