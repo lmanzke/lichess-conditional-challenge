@@ -1,7 +1,7 @@
-export const sum = (a, b) => a + b;
-export const sumArray = arr => arr.reduce(sum, 0);
+export const sum = (a: number, b: number) => a + b;
+export const sumArray = (arr: number[]) => arr.reduce(sum, 0);
 
-const separateIndex = (elements, index) => {
+const separateIndex = <T>(elements: T[], index: number): { current: T | null; other: T[] } => {
   if (elements.length === 0) {
     return { current: null, other: [] };
   }
@@ -16,10 +16,10 @@ const separateIndex = (elements, index) => {
   };
 };
 
-export const splitRandomElement = elements => {
+export const splitRandomElement = <T>(elements: T[]): { current: T | null; other: T[] } => {
   const index = Math.floor(Math.random() * elements.length);
 
   return separateIndex(elements, index);
 };
 
-export const headTail = elements => separateIndex(elements, 0);
+export const headTail = <T>(elements: T[]): { current: T | null; other: T[] } => separateIndex(elements, 0);

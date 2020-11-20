@@ -11,7 +11,7 @@ global.browser = require('webextension-polyfill');
 const CHALLENGES_CONTAINER_ID = 'challenge-app';
 const CHALLENGE_MENU_TOGGLE_ID = 'challenge-toggle';
 
-function init(container) {
+function init(container: HTMLElement) {
   const div = document.createElement('div');
   container.prepend(div);
 
@@ -30,7 +30,8 @@ function initWhenContainerLoaded() {
   if (!container) {
     console.error('Could not find challenges container (element with id ' + CHALLENGES_CONTAINER_ID + ')');
   }
-  if (container?.className?.indexOf('rendered') > 0) {
+  const renderedIndex = container?.className?.indexOf('rendered') ?? -1;
+  if (renderedIndex > 0 && container !== null) {
     const element = init(container);
     createApp(App, { container, $browser: global.browser })
       .use(store)
