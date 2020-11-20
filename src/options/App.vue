@@ -4,7 +4,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import QueryBuilder from '../builder/QueryBuilder';
 
 export default {

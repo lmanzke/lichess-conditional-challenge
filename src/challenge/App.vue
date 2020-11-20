@@ -5,7 +5,7 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import { convertRule, declineUnmatchingFactory, getChallengeElement, getChallengeInfos, processChallengesFactory } from './lichess';
 import { getLichessPrefs } from './storage';
 

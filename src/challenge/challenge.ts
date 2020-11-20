@@ -1,9 +1,10 @@
-import Vue from 'vue';
-import App from './App';
+import { createApp } from 'vue';
+import App from './App.vue';
 import store from '../store';
 
+declare const global: { browser: unknown };
+
 global.browser = require('webextension-polyfill');
-Vue.prototype.$browser = global.browser;
 
 /* eslint-disable no-new */
 
@@ -25,17 +26,15 @@ function loadContainer() {
   e.click(); // close challanges menu
 }
 function initWhenContainerLoaded() {
-  var container = document.getElementById(CHALLENGES_CONTAINER_ID);
+  const container = document.getElementById(CHALLENGES_CONTAINER_ID);
   if (!container) {
     console.error('Could not find challenges container (element with id ' + CHALLENGES_CONTAINER_ID + ')');
   }
-  if (container.className.indexOf('rendered') > 0) {
+  if (container?.className?.indexOf('rendered') > 0) {
     const element = init(container);
-    new Vue({
-      el: element,
-      store,
-      render: h => h(App, { props: { container } }),
-    });
+    createApp(App, { container, $browser: global.browser })
+      .use(store)
+      .mount(element);
   } else {
     loadContainer();
     setTimeout(initWhenContainerLoaded, 100);

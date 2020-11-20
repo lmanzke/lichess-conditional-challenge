@@ -47,7 +47,7 @@ const main = () => {
 
   buildZip(DEST_DIR, DEST_ZIP_DIR, zipFilename)
     .then(() => console.info('OK'))
-    .catch(console.err);
+    .catch(console.error);
 };
 
 main();

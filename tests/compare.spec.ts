@@ -1,4 +1,4 @@
-import { compare } from '../src/challenge/operators';
+import { compare } from '@/challenge/operators';
 
 describe('compare', function() {
   describe('LT', function() {

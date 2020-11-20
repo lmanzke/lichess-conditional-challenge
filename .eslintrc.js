@@ -3,27 +3,26 @@
 
 module.exports = {
   root: true,
+  parser: 'vue-eslint-parser',
   parserOptions: {
-    parser: 'babel-eslint'
+    parser: '@typescript-eslint/parser'
   },
   env: {
     browser: true,
     webextensions: true,
     jest: true,
   },
+  globals: {
+    "global": "readonly"
+  },
   extends: [
-    // https://github.com/vuejs/eslint-plugin-vue#priority-a-essential-error-prevention
-    // consider switching to `plugin:vue/strongly-recommended` or `plugin:vue/recommended` for stricter rules.
-    'plugin:vue/essential',
-    // https://github.com/standard/standard/blob/master/docs/RULES-en.md
-    'standard',
-    // https://prettier.io/docs/en/index.html
-    'plugin:prettier/recommended'
+    "plugin:vue/vue3-essential",
+    "eslint:recommended",
+    "@vue/typescript/recommended",
+    "@vue/prettier",
+    "@vue/prettier/@typescript-eslint"
   ],
-  // required to lint *.vue files
-  plugins: [
-    'vue'
-  ],
+  ignorePatterns: ['dist'],
   // add your custom rules here
   rules: {
     // allow async-await
