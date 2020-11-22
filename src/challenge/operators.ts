@@ -1,54 +1,73 @@
-export const mapOperator = operator => {
+export enum Relation {
+  LESS_THAN = 'LT',
+  LESS_THAN_EQUAL = 'LTE',
+  GREATER_THAN = 'GT',
+  GREATER_THAN_EQUAL = 'GTE',
+  EQUAL = 'EQ',
+  NOT_EQUAL = 'NEQ',
+  NOT_IN = 'NIN',
+  IN = 'IN',
+  BETWEEN = 'BETW',
+}
+
+export const mapOperator = (operator: string): Relation => {
   switch (operator) {
     case 'less':
-      return 'LT';
+      return Relation.LESS_THAN;
     case 'less_or_equal':
-      return 'LTE';
+      return Relation.LESS_THAN_EQUAL;
     case 'greater':
-      return 'GT';
+      return Relation.GREATER_THAN;
     case 'greater_or_equal':
-      return 'GTE';
-    case 'equal':
-      return 'EQ';
+      return Relation.GREATER_THAN_EQUAL;
     case 'not_equal':
-      return 'NEQ';
+      return Relation.NOT_EQUAL;
     case 'not_in':
-      return 'NIN';
+      return Relation.NOT_IN;
     case 'in':
-      return 'IN';
+      return Relation.IN;
     case 'between':
-      return 'BETW';
+      return Relation.BETWEEN;
+    case 'equal':
+    default:
+      return Relation.EQUAL;
   }
 };
 
-export const compare = (relation, value) => candidate => {
+export const compare = (relation: Relation, value: string | number | boolean | string[]) => (candidate: string | number | boolean): boolean => {
   switch (relation) {
-    case 'LT':
+    case Relation.LESS_THAN:
       return value > candidate;
-    case 'GT':
+    case Relation.GREATER_THAN:
       return value < candidate;
-    case 'LTE':
+    case Relation.LESS_THAN_EQUAL:
       return value >= candidate;
-    case 'GTE':
+    case Relation.GREATER_THAN_EQUAL:
       return value <= candidate;
-    case 'IN':
+    case Relation.IN:
       if (!Array.isArray(value)) {
-        return value.split(';').includes(candidate.toString());
+        return value
+          .toString()
+          .split(';')
+          .includes(candidate.toString());
       }
-      return value.map(v => v.toString()).includes(candidate.toString());
-    case 'BETW':
+      return value.includes(candidate.toString());
+    case Relation.BETWEEN:
       if (!Array.isArray(value)) {
         return false;
       }
-      return candidate >= Math.min(...value) && candidate <= Math.max(...value);
-    case 'NEQ':
+      return candidate >= Math.min(...value.map(v => parseFloat(v))) && candidate <= Math.max(...value.map(v => parseFloat(v)));
+    case Relation.NOT_EQUAL:
       return value !== candidate;
-    case 'NIN':
+    case Relation.NOT_IN:
+      if (typeof value === 'boolean' || typeof value === 'number') {
+        return false;
+      }
       if (!Array.isArray(value)) {
         return !value.split(';').includes(candidate.toString());
       }
       return !value.map(v => v.toString()).includes(candidate.toString());
-    case 'EQ':
+    case Relation.EQUAL:
     default:
       return value === candidate;
   }

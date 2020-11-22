@@ -1,4 +1,4 @@
-import { extractNumEncounters } from '../src/challenge/lichess';
+import { extractNumEncounters } from '@/challenge/lichess';
 
 describe('extractNumEncounters', function() {
   it('should work for integers', function() {

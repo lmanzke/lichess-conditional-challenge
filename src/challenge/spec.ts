@@ -1,4 +1,6 @@
-export const andSpec = (spec1, spec2) => ({
+import { Spec } from '@/challenge/lichess';
+
+export const andSpec = (spec1: Spec, spec2: Spec): Spec => ({
   isSatisfied: async challenge => {
     const firstResult = await spec1.isSatisfied(challenge);
     if (!firstResult) {
@@ -8,7 +10,7 @@ export const andSpec = (spec1, spec2) => ({
   },
 });
 
-export const orSpec = (spec1, spec2) => ({
+export const orSpec = (spec1: Spec, spec2: Spec): Spec => ({
   isSatisfied: async challenge => {
     const firstResult = await spec1.isSatisfied(challenge);
     if (firstResult) {
@@ -18,7 +20,7 @@ export const orSpec = (spec1, spec2) => ({
   },
 });
 
-export const notSpec = spec1 => ({
+export const notSpec = (spec1: Spec): Spec => ({
   isSatisfied: async challenge => {
     const result = await spec1.isSatisfied(challenge);
 
@@ -26,7 +28,7 @@ export const notSpec = spec1 => ({
   },
 });
 
-export const applyCondition = (operator, spec1, spec2) => {
+export const applyCondition = (operator: string, spec1: Spec, spec2: Spec): Spec => {
   switch (operator) {
     case 'AND':
       return andSpec(spec1, spec2);
@@ -36,6 +38,6 @@ export const applyCondition = (operator, spec1, spec2) => {
   }
 };
 
-export const anySpec = {
+export const anySpec: Spec = {
   isSatisfied: async _challenge => true,
 };

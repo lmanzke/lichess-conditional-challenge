@@ -15,6 +15,7 @@ export default {
       type: HTMLElement,
     },
   },
+  computed: {},
   methods: {
     async team() {
       const challengeElement = getChallengeElement(this.container);

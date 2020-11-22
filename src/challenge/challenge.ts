@@ -18,7 +18,7 @@ function init(container: HTMLElement) {
   return div;
 }
 function loadContainer() {
-  const e = document.getElementById(CHALLENGE_MENU_TOGGLE_ID);
+  const e = document.getElementById(CHALLENGE_MENU_TOGGLE_ID) as HTMLButtonElement;
   if (!e) {
     console.error('Could not find challenge menu toggle (element with id ' + CHALLENGE_MENU_TOGGLE_ID + ')');
   }
@@ -33,7 +33,9 @@ function initWhenContainerLoaded() {
   const renderedIndex = container?.className?.indexOf('rendered') ?? -1;
   if (renderedIndex > 0 && container !== null) {
     const element = init(container);
-    createApp(App, { container, $browser: global.browser })
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    createApp(App, { container })
       .use(store)
       .mount(element);
   } else {

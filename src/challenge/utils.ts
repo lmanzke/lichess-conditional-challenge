@@ -1,7 +1,16 @@
-export const sum = (a: number, b: number) => a + b;
-export const sumArray = (arr: number[]) => arr.reduce(sum, 0);
+export const sum = (a: number, b: number): number => a + b;
+export const sumArray = (arr: number[]): number => arr.reduce(sum, 0);
 
-const separateIndex = <T>(elements: T[], index: number): { current: T | null; other: T[] } => {
+export interface SplitCollection<T> {
+  current: T | null;
+  other: T[];
+}
+
+export interface Splitter {
+  <T>(elements: T[]): SplitCollection<T>;
+}
+
+const separateIndex = <T>(elements: T[], index: number): SplitCollection<T> => {
   if (elements.length === 0) {
     return { current: null, other: [] };
   }
@@ -16,10 +25,10 @@ const separateIndex = <T>(elements: T[], index: number): { current: T | null; ot
   };
 };
 
-export const splitRandomElement = <T>(elements: T[]): { current: T | null; other: T[] } => {
+export const splitRandomElement: Splitter = <T>(elements: T[]): SplitCollection<T> => {
   const index = Math.floor(Math.random() * elements.length);
 
   return separateIndex(elements, index);
 };
 
-export const headTail = <T>(elements: T[]): { current: T | null; other: T[] } => separateIndex(elements, 0);
+export const headTail: Splitter = <T>(elements: T[]): SplitCollection<T> => separateIndex(elements, 0);

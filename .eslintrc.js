@@ -5,29 +5,25 @@ module.exports = {
   root: true,
   parser: 'vue-eslint-parser',
   parserOptions: {
-    parser: '@typescript-eslint/parser'
+    parser: '@typescript-eslint/parser',
   },
   env: {
     browser: true,
     webextensions: true,
     jest: true,
+    node: true,
   },
   globals: {
-    "global": "readonly"
+    global: 'readonly',
+    chrome: 'readonly',
   },
-  extends: [
-    "plugin:vue/vue3-essential",
-    "eslint:recommended",
-    "@vue/typescript/recommended",
-    "@vue/prettier",
-    "@vue/prettier/@typescript-eslint"
-  ],
+  extends: ['plugin:vue/vue3-essential', 'eslint:recommended', '@vue/typescript/recommended', '@vue/prettier', '@vue/prettier/@typescript-eslint'],
   ignorePatterns: ['dist'],
   // add your custom rules here
   rules: {
     // allow async-await
     'generator-star-spacing': 'off',
     // allow debugger during development
-    'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off'
-  }
-}
+    'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+  },
+};
