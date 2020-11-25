@@ -53,7 +53,7 @@ export default {
 
         const challengeInfo = await getChallengeInfos(challengeElement);
         const challengeProcessor = declineUnmatchingFactory(spec);
-        const unmatchedChallenges = await challengeProcessor(challengeInfo);
+        const unmatchedChallenges = await challengeProcessor(challengeInfo, []);
 
         unmatchedChallenges.forEach(challenge => challenge.decline());
       } catch (e) {

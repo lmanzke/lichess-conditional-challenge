@@ -34,7 +34,7 @@ export interface Team {
 }
 
 export type Rule = {
-  condition: string;
+  condition: string | undefined;
   rules: Rule[];
   id: string;
   value: string;
@@ -57,7 +57,7 @@ export const extractNumEncounters = (html: string): number => {
 const compareTeams = (teams: string, operator: Relation) => async (challenge: Challenge) => {
   const response = await HTTP.get<Team[]>(`/api/team/of/${challenge.username}`);
 
-  return response.data.some(team => compare(operator, teams)(team.id));
+  return response.data.some(team => compare(operator)(teams)(team.id));
 };
 
 export const teamSpec = (teams: string, operator: Relation): Spec => ({
@@ -69,25 +69,25 @@ export const encounterSpec = (value: string, operator: Relation): Spec => ({
     const response = await HTTP.get(`/@/${challenge.username}/mini`);
     const encounters = extractNumEncounters(response.data);
 
-    return compare(operator, value)(encounters);
+    return compare(operator)(value)(encounters);
   },
 });
 
 export const ratingSpec = (value: string, operator: Relation): Spec => ({
   isSatisfied: async challenge => {
-    return compare(operator, value)(challenge.challenger.rating);
+    return compare(operator)(value)(challenge.challenger.rating);
   },
 });
 
 export const ratedSpec = (value: string, operator: Relation): Spec => ({
   isSatisfied: async challenge => {
-    return compare(operator, !!value)(challenge.rated);
+    return compare(operator)(!!value)(challenge.rated);
   },
 });
 
 export const variantSpec = (value: string, operator: Relation): Spec => ({
   isSatisfied: async challenge => {
-    return compare(operator, value)(challenge.variant.key);
+    return compare(operator)(value)(challenge.variant.key);
   },
 });
 
@@ -202,7 +202,7 @@ export const processChallengesFactory = (spec: Spec): ChallengeProcessor =>
 export const convertRule = (rule: Rule): Spec => {
   if (typeof rule.condition !== 'undefined') {
     const operator = rule.condition;
-    return rule.rules.reduce((currentSpec: Spec, currentRule) => {
+    return rule.rules.reduce((currentSpec, currentRule) => {
       return applyCondition(operator, currentSpec, convertRule(currentRule));
     }, anySpec);
   }
