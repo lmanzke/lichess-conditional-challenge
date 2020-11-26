@@ -6,7 +6,7 @@
   "scripts": {
     "build": "cross-env NODE_ENV=production webpack --hide-modules",
     "lint": "eslint --ext .js,.vue,.ts src",
-    "build-zip": "node scripts/build-zip.js",
+    "build-zip": "node scripts/build-zip.ts",
     "build:dev": "cross-env NODE_ENV=development webpack --hide-modules",
     "prettier": "prettier \"src/**/*.{js,vue}\"",
     "prettier:write": "npm run prettier -- --write",
