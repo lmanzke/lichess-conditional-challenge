@@ -1,7 +1,7 @@
-import { HTTP } from './axios';
 import { headTail, splitRandomElement, Splitter, sumArray } from './utils';
 import { compare, mapOperator, Relation } from './operators';
-import { anySpec, applyCondition } from './spec';
+import { anySpec, applyCondition, SpecFactory } from './spec';
+import { AxiosInstance } from 'axios';
 
 export interface Challenger {
   rating: number;
@@ -54,19 +54,19 @@ export const extractNumEncounters = (html: string): number => {
   return sumArray(scores);
 };
 
-const compareTeams = (teams: string, operator: Relation) => async (challenge: Challenge) => {
-  const response = await HTTP.get<Team[]>(`/api/team/of/${challenge.username}`);
+const compareTeamsFactory = (http: AxiosInstance) => (teams: string, operator: Relation) => async (challenge: Challenge) => {
+  const response = await http.get<Team[]>(`/api/team/of/${challenge.username}`);
 
   return response.data.some(team => compare(operator)(teams)(team.id));
 };
 
-export const teamSpec = (teams: string, operator: Relation): Spec => ({
-  isSatisfied: compareTeams(teams, operator),
+export const teamSpecFactory = (http: AxiosInstance) => (teams: string, operator: Relation): Spec => ({
+  isSatisfied: compareTeamsFactory(http)(teams, operator),
 });
 
-export const encounterSpec = (value: string, operator: Relation): Spec => ({
+export const encounterSpecFactory = (http: AxiosInstance) => (value: string, operator: Relation): Spec => ({
   isSatisfied: async challenge => {
-    const response = await HTTP.get(`/@/${challenge.username}/mini`);
+    const response = await http.get(`/@/${challenge.username}/mini`);
     const encounters = extractNumEncounters(response.data);
 
     return compare(operator)(value)(encounters);
@@ -95,14 +95,18 @@ export const getChallengeElement = (container: HTMLElement): HTMLDivElement => {
   return container.getElementsByClassName('challenges')[0] as HTMLDivElement;
 };
 
-const getChallengeInfo = async () => {
-  const response = await HTTP.get<{ in: LiChessChallenge[] }>('/challenge', { headers: { accept: 'application/vnd.lichess.v5+json', 'x-requested-with': 'XMLHttpRequest' } });
+const getChallengeInfo = (http: AxiosInstance) => async () => {
+  const response = await http.get<{ in: LiChessChallenge[] }>('/challenge', { headers: { accept: 'application/vnd.lichess.v5+json', 'x-requested-with': 'XMLHttpRequest' } });
 
   return Object.fromEntries(response.data.in.map(v => [v.id, v]));
 };
 
-export const getChallengeInfos = async (challengeContainerElement: HTMLElement): Promise<Challenge[]> => {
-  const remoteChallengeInfo = await getChallengeInfo();
+export interface ChallengeRetriever {
+  (challengeContainerElement: HTMLElement): Promise<Challenge[]>;
+}
+
+export const getChallengeInfosFactory = (http: AxiosInstance): ChallengeRetriever => async (challengeContainerElement: HTMLElement): Promise<Challenge[]> => {
+  const remoteChallengeInfo = await getChallengeInfo(http)();
 
   return Array.from(challengeContainerElement.getElementsByClassName('challenge')).reduce((acc: Challenge[], v) => {
     const userLink = v.getElementsByClassName('user-link')[0].attributes.getNamedItem('href')?.value;
@@ -199,26 +203,34 @@ export const processChallengesFactory = (spec: Spec): ChallengeProcessor =>
     splitRandomElement
   );
 
-export const convertRule = (rule: Rule): Spec => {
-  if (typeof rule.condition !== 'undefined') {
-    const operator = rule.condition;
-    return rule.rules.reduce((currentSpec, currentRule) => {
-      return applyCondition(operator, currentSpec, convertRule(currentRule));
-    }, anySpec);
-  }
+export interface RuleConverter {
+  (rule: Rule): Spec;
+}
 
-  switch (rule.id) {
-    case 'team-name':
-      return teamSpec(rule.value, mapOperator(rule.operator));
-    case 'encounters':
-      return encounterSpec(rule.value, mapOperator(rule.operator));
-    case 'rating':
-      return ratingSpec(rule.value, mapOperator(rule.operator));
-    case 'rated':
-      return ratedSpec(rule.value, mapOperator(rule.operator));
-    case 'variant':
-      return variantSpec(rule.value, mapOperator(rule.operator));
-  }
+export const convertRuleFactory = (specFactory: SpecFactory): RuleConverter => {
+  const rec = (rule: Rule): Spec => {
+    if (typeof rule.condition !== 'undefined') {
+      const operator = rule.condition;
+      return rule.rules.reduce((currentSpec, currentRule) => {
+        return applyCondition(operator, currentSpec, rec(currentRule));
+      }, anySpec);
+    }
 
-  return anySpec;
+    switch (rule.id) {
+      case 'team-name':
+        return specFactory.teamSpec(rule.value, mapOperator(rule.operator));
+      case 'encounters':
+        return specFactory.encounterSpec(rule.value, mapOperator(rule.operator));
+      case 'rating':
+        return specFactory.ratingSpec(rule.value, mapOperator(rule.operator));
+      case 'rated':
+        return specFactory.ratedSpec(rule.value, mapOperator(rule.operator));
+      case 'variant':
+        return specFactory.variantSpec(rule.value, mapOperator(rule.operator));
+    }
+
+    return anySpec;
+  };
+
+  return rec;
 };

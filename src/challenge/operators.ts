@@ -1,4 +1,4 @@
-import {fromCompare, Ord, ordNumber} from 'fp-ts/Ord';
+import { ordNumber } from 'fp-ts/Ord';
 import * as O from 'fp-ts/Option';
 import { Ordering } from 'fp-ts/Ordering';
 import { flow, not, Predicate } from 'fp-ts/function';
@@ -78,7 +78,7 @@ export const numberComparison = (predicate: Predicate<Ordering>) => (value: stri
 
 const eq = <A>(value: A): Predicate<A> => (candidate: A) => value === candidate;
 const notEq = flow(eq, not);
-const oneOf = <A>(value: A[]): Predicate<A> => (candidate: A) => value.includes(candidate);
+const _oneOf = <A>(value: A[]): Predicate<A> => (candidate: A) => value.includes(candidate);
 
 export const lessThan = numberComparison(eq<Ordering>(-1));
 export const greaterThan = numberComparison(eq<Ordering>(1));

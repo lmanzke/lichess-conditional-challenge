@@ -1,11 +1,9 @@
 import * as types from './mutation-types';
+import { State } from '@/store/index';
+import { anySpec } from '@/challenge/spec';
 
 export default {
-  [types.UPDATE_FOO](state, payload) {
-    state.foo = payload;
-  },
-
-  [types.ADD_SPEC](state) {
-    state.specs.push({ type: 'any' });
+  [types.ADD_SPEC](state: State): void {
+    state.specs.push(anySpec);
   },
 };

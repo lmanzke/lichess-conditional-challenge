@@ -6,20 +6,21 @@
 
 <script lang="ts">
 import QueryBuilder from '../builder/QueryBuilder';
+import { Rule } from '@/challenge/lichess';
 
 export default {
   name: 'App',
   components: { QueryBuilder },
   methods: {
-    handleRuleChange(newRules) {
+    handleRuleChange(newRules: Rule): void {
       chrome.storage.sync.set({ lichessTeamRules: JSON.stringify(newRules) });
     },
   },
-  data: () => ({
+  data: (): unknown => ({
     queryBuilderRules: undefined,
   }),
   computed: {
-    queryBuilderOptions() {
+    queryBuilderOptions(): unknown {
       return {
         plugins: ['bt-checkbox'],
         filters: [
@@ -75,7 +76,7 @@ export default {
       };
     },
   },
-  mounted() {
+  mounted(): void {
     chrome.storage.sync.get(['lichessTeamRules'], result => {
       if (result.lichessTeamRules) {
         const { valid: _valid, ...rules } = JSON.parse(result.lichessTeamRules);

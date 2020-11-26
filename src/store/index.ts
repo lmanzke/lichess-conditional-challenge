@@ -2,13 +2,16 @@ import { createStore } from 'vuex';
 
 import * as getters from './getters';
 import mutations from './mutations';
-import * as actions from './actions';
+import { Spec } from '@/challenge/lichess';
+
+export interface State {
+  specs: Spec[];
+}
 
 export default createStore({
-  state: () => ({
+  state: (): State => ({
     specs: [],
   }),
   getters,
   mutations,
-  actions,
 });

@@ -19,6 +19,9 @@ const config = {
     filename: '[name].js',
   },
   resolve: {
+    alias: {
+      '@': __dirname + '/src',
+    },
     extensions: ['.ts', '.vue', '.js'],
   },
   module: {

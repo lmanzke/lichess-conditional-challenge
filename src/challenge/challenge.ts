@@ -1,6 +1,7 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import store from '../store';
+import { getDependencyContainer } from '@/challenge/dependencies';
 
 declare const global: { browser: unknown };
 
@@ -33,9 +34,10 @@ function initWhenContainerLoaded() {
   const renderedIndex = container?.className?.indexOf('rendered') ?? -1;
   if (renderedIndex > 0 && container !== null) {
     const element = init(container);
+    const dependencies = getDependencyContainer();
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    createApp(App, { container })
+    createApp(App, { container, dependencies })
       .use(store)
       .mount(element);
   } else {

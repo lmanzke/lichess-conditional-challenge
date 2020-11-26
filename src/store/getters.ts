@@ -1,9 +1,7 @@
-import { anySpec } from '../challenge/spec';
+import { anySpec } from '@/challenge/spec';
+import { State } from '@/store/index';
+import { Spec } from '@/challenge/lichess';
 
-export const foo = state => state.foo;
-
-export const specs = state => {
-  if (state.specs.length === 0) {
-    return anySpec;
-  }
+export const specs = (_state: State): Spec => {
+  return anySpec;
 };

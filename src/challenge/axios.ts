@@ -1,5 +1,6 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 
-export const HTTP = axios.create({
-  baseURL: 'https://lichess.org',
-});
+export const axiosFactory = (): AxiosInstance =>
+  axios.create({
+    baseURL: 'https://lichess.org',
+  });
