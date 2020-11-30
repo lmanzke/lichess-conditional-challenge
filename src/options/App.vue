@@ -7,8 +7,13 @@
 <script lang="ts">
 import QueryBuilder from '../builder/QueryBuilder';
 import { Rule } from '@/challenge/lichess';
+import { defineComponent } from 'vue';
 
-export default {
+interface AppData {
+  queryBuilderRules?: Rule;
+}
+
+export default defineComponent({
   name: 'App',
   components: { QueryBuilder },
   methods: {
@@ -16,7 +21,7 @@ export default {
       chrome.storage.sync.set({ lichessTeamRules: JSON.stringify(newRules) });
     },
   },
-  data: (): unknown => ({
+  data: (): AppData => ({
     queryBuilderRules: undefined,
   }),
   computed: {
@@ -84,7 +89,7 @@ export default {
       }
     });
   },
-};
+});
 </script>
 
 <style lang="scss">

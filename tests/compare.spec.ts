@@ -1,10 +1,14 @@
 import { compare, lessThan, numberComparison, ordOptionNumber, Relation, toNumber } from '@/challenge/operators';
-import { some } from 'fp-ts/Option';
+import { none, some } from 'fp-ts/Option';
 import { ordNumber } from 'fp-ts/Ord';
 
 describe('toNumber', function() {
   it('should work for numbers', function() {
     expect(toNumber(3)).toEqual(some(3));
+  });
+
+  it('should work for non-numbers', function() {
+    expect(toNumber('a')).toEqual(none);
   });
 });
 

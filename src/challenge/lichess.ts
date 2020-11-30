@@ -22,6 +22,14 @@ export interface Challenge {
   decline: () => void;
 }
 
+export interface Matchup {
+  users: {
+    [key: string]: number;
+    nbGames: number;
+  };
+  matchup?: Matchup;
+}
+
 export interface LiChessChallenge {
   id: string;
   challenger: Challenger;
@@ -29,8 +37,21 @@ export interface LiChessChallenge {
   variant: Variant;
 }
 
+export interface LichessUser {
+  id: string;
+  name: string;
+  patron?: boolean;
+}
+
 export interface Team {
   id: string;
+  name: string;
+  description: string;
+  open: boolean;
+  leader: LichessUser;
+  leaders: LichessUser[];
+  nbMembers: number;
+  location: string;
 }
 
 export type Rule = {
