@@ -36,6 +36,12 @@ export default defineComponent({
             operators: ['equal', 'not_equal', 'not_in', 'in'],
           },
           {
+            id: 'user-id',
+            label: 'User Id',
+            type: 'string',
+            operators: ['equal', 'not_equal', 'not_in', 'in'],
+          },
+          {
             id: 'encounters',
             label: 'Number of past encounters',
             type: 'integer',

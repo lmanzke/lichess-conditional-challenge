@@ -1,10 +1,11 @@
 import { headTail, splitRandomElement, Splitter, sumArray } from './utils';
 import { compare, mapOperator, Relation } from './operators';
-import { anySpec, applyCondition, SpecFactory } from './spec';
+import { anySpec, applyCondition, noneSpec, SpecFactory } from './spec';
 import { AxiosInstance } from 'axios';
 
 export interface Challenger {
   rating: number;
+  id: string;
 }
 
 export interface Variant {
@@ -109,6 +110,12 @@ export const ratedSpec = (value: string, operator: Relation): Spec => ({
 export const variantSpec = (value: string, operator: Relation): Spec => ({
   isSatisfied: async challenge => {
     return compare(operator)(value)(challenge.variant.key);
+  },
+});
+
+export const userIdSpec = (value: string, operator: Relation): Spec => ({
+  isSatisfied: async challenge => {
+    return compare(operator)(value)(challenge.challenger.id);
   },
 });
 
@@ -248,9 +255,11 @@ export const convertRuleFactory = (specFactory: SpecFactory): RuleConverter => {
         return specFactory.ratedSpec(rule.value, mapOperator(rule.operator));
       case 'variant':
         return specFactory.variantSpec(rule.value, mapOperator(rule.operator));
+      case 'user-id':
+        return specFactory.userIdSpec(rule.value, mapOperator(rule.operator));
     }
 
-    return anySpec;
+    return noneSpec;
   };
 
   return rec;
