@@ -1,66 +1,86 @@
 <template>
   <div class="extender">
-    <button class="fbt" @click="team">Accept matching challenge</button>
-    <button class="fbt" @click="declineAll">Decline all unmatching</button>
+    <button class="fbt" @click="acceptMatchingClicked">Accept matching challenge</button>
+    <button class="fbt" @click="declineUnmatchingClicked">Decline all unmatching</button>
   </div>
 </template>
 
-<script>
-import { convertRule, declineUnmatchingFactory, getChallengeElement, getChallengeInfos, processChallengesFactory } from './lichess';
-import { getLichessPrefs } from './storage';
+<script lang="ts">
+import { ChallengeRetriever, declineUnmatchingFactory, getChallengeElement, processChallengesFactory, RuleConverter } from '@/challenge/lichess';
+import { getLichessPrefs } from '@/challenge/storage';
+import { defineComponent, provide } from 'vue';
+import { JpexInstance } from 'jpex';
 
-export default {
+interface Props {
+  container: HTMLElement;
+  dependencies: JpexInstance;
+}
+
+const acceptMatchingClicked = (container: HTMLElement, convertRule: RuleConverter, challengeRetriever: ChallengeRetriever) => async () => {
+  const challengeElement = getChallengeElement(container);
+  if (!challengeElement) {
+    console.log('No matching challenge found');
+    return;
+  }
+
+  try {
+    const lichessPrefs = await getLichessPrefs();
+    const spec = convertRule(lichessPrefs);
+
+    const challengeInfo = await challengeRetriever(challengeElement);
+    const challengeProcessor = processChallengesFactory(spec);
+    const matchingChallenges = await challengeProcessor(challengeInfo, []);
+
+    if (matchingChallenges.length > 0) {
+      matchingChallenges[0].accept();
+    } else {
+      console.log('No matching challenge found');
+    }
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const declineUnmatchingClicked = (container: HTMLElement, convertRule: RuleConverter, challengeRetriever: ChallengeRetriever) => async () => {
+  const challengeElement = getChallengeElement(container);
+  if (!challengeElement) {
+    return;
+  }
+
+  try {
+    const lichessPrefs = await getLichessPrefs();
+    const spec = convertRule(lichessPrefs);
+
+    const challengeInfo = await challengeRetriever(challengeElement);
+    const challengeProcessor = declineUnmatchingFactory(spec);
+    const unmatchedChallenges = await challengeProcessor(challengeInfo, []);
+
+    unmatchedChallenges.forEach(challenge => challenge.decline());
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+export default defineComponent({
   props: {
     container: {
       type: HTMLElement,
     },
-  },
-  methods: {
-    async team() {
-      const challengeElement = getChallengeElement(this.container);
-      if (!challengeElement) {
-        console.log('No matching challenge found');
-        return;
-      }
-
-      try {
-        const lichessPrefs = await getLichessPrefs();
-        const spec = convertRule(lichessPrefs);
-
-        const challengeInfo = await getChallengeInfos(challengeElement);
-        const challengeProcessor = processChallengesFactory(spec);
-        const matchingChallenges = await challengeProcessor(challengeInfo);
-
-        if (matchingChallenges.length > 0) {
-          matchingChallenges[0].accept();
-        } else {
-          console.log('No matching challenge found');
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    async declineAll() {
-      const challengeElement = getChallengeElement(this.container);
-      if (!challengeElement) {
-        return;
-      }
-
-      try {
-        const lichessPrefs = await getLichessPrefs();
-        const spec = convertRule(lichessPrefs);
-
-        const challengeInfo = await getChallengeInfos(challengeElement);
-        const challengeProcessor = declineUnmatchingFactory(spec);
-        const unmatchedChallenges = await challengeProcessor(challengeInfo);
-
-        unmatchedChallenges.forEach(challenge => challenge.decline());
-      } catch (e) {
-        console.error(e);
-      }
+    dependencies: {
+      type: Object,
     },
   },
-};
+  setup(props: Props) {
+    provide('dependencies', props.dependencies);
+    const ruleConverter = props.dependencies.resolve<RuleConverter>('ruleConverter');
+    const challengeRetriever = props.dependencies.resolve<ChallengeRetriever>('challengeRetriever');
+
+    return {
+      acceptMatchingClicked: acceptMatchingClicked(props.container, ruleConverter, challengeRetriever),
+      declineUnmatchingClicked: declineUnmatchingClicked(props.container, ruleConverter, challengeRetriever),
+    };
+  },
+});
 </script>
 <style>
 .extender {

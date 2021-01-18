@@ -10,16 +10,19 @@ const config = {
   mode: process.env.NODE_ENV,
   context: __dirname + '/src',
   entry: {
-    background: './background.js',
-    'challenge/challenge': './challenge/challenge.js',
-    'options/options': './options/options.js',
+    background: './background.ts',
+    'challenge/challenge': './challenge/challenge.ts',
+    'options/options': './options/options.ts',
   },
   output: {
     path: __dirname + '/dist',
     filename: '[name].js',
   },
   resolve: {
-    extensions: ['.js', '.vue'],
+    alias: {
+      '@': __dirname + '/src',
+    },
+    extensions: ['.ts', '.vue', '.js'],
   },
   module: {
     rules: [
@@ -28,9 +31,18 @@ const config = {
         loader: 'vue-loader',
       },
       {
-        test: /\.js$/,
-        loader: 'babel-loader',
-        exclude: /node_modules/,
+        test: /\.js|\.ts$/,
+        use: [
+          'babel-loader',
+          {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true,
+              appendTsSuffixTo: ['\\.vue$'],
+              happyPackMode: false,
+            },
+          },
+        ],
       },
       {
         test: /\.css$/,

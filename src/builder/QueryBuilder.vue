@@ -4,11 +4,12 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import $ from 'jquery';
 import 'jQuery-QueryBuilder';
+import { defineComponent } from 'vue';
 
-export default {
+export default defineComponent({
   name: 'QueryBuilder',
   props: {
     options: {
@@ -21,6 +22,7 @@ export default {
     },
   },
   mounted() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const vue = this;
     const container = $(this.$refs.queryBuilderContainer);
     container.queryBuilder(this.options);
@@ -31,19 +33,19 @@ export default {
       }
       const rules = $(this).queryBuilder('getRules');
       if (rules) {
-        vue.$emit('rulesChanged', rules);
+        vue.$emit('rules-changed', rules);
       }
     });
   },
   watch: {
     rulesProp: {
-      handler(newValue) {
+      handler(newValue: unknown) {
         const container = $(this.$refs.queryBuilderContainer);
         container.queryBuilder('setRules', newValue);
       },
     },
   },
-};
+});
 </script>
 
 <style>

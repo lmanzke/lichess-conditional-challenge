@@ -4,28 +4,40 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
 import QueryBuilder from '../builder/QueryBuilder';
+import { Rule } from '@/challenge/lichess';
+import { defineComponent } from 'vue';
 
-export default {
+interface AppData {
+  queryBuilderRules?: Rule;
+}
+
+export default defineComponent({
   name: 'App',
   components: { QueryBuilder },
   methods: {
-    handleRuleChange(newRules) {
+    handleRuleChange(newRules: Rule): void {
       chrome.storage.sync.set({ lichessTeamRules: JSON.stringify(newRules) });
     },
   },
-  data: () => ({
+  data: (): AppData => ({
     queryBuilderRules: undefined,
   }),
   computed: {
-    queryBuilderOptions() {
+    queryBuilderOptions(): unknown {
       return {
         plugins: ['bt-checkbox'],
         filters: [
           {
             id: 'team-name',
             label: 'Team Name',
+            type: 'string',
+            operators: ['equal', 'not_equal', 'not_in', 'in'],
+          },
+          {
+            id: 'user-id',
+            label: 'User Id',
             type: 'string',
             operators: ['equal', 'not_equal', 'not_in', 'in'],
           },
@@ -75,7 +87,7 @@ export default {
       };
     },
   },
-  mounted() {
+  mounted(): void {
     chrome.storage.sync.get(['lichessTeamRules'], result => {
       if (result.lichessTeamRules) {
         const { valid: _valid, ...rules } = JSON.parse(result.lichessTeamRules);
@@ -83,7 +95,7 @@ export default {
       }
     });
   },
-};
+});
 </script>
 
 <style lang="scss">
