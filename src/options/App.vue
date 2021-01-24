@@ -27,7 +27,7 @@ export default defineComponent({
   computed: {
     queryBuilderOptions(): unknown {
       return {
-        plugins: ['bt-checkbox'],
+        plugins: ['bt-checkbox', 'silent'],
         filters: [
           {
             id: 'team-name',

@@ -29,10 +29,11 @@ describe('compareTeams', function() {
       })
     );
     teamSpecFactory(http)('team1', Relation.IN)
-      .isSatisfied({
+      .execute({
         accept(): void {},
         challenger: {
           rating: 1200,
+          id: 'any',
         },
         decline(): void {},
         id: 'challenger1',
@@ -44,7 +45,7 @@ describe('compareTeams', function() {
         },
       })
       .then(result => {
-        expect(result).toEqual(true);
+        expect(result.isSatisfied).toEqual(true);
         done();
       })
       .catch(done);

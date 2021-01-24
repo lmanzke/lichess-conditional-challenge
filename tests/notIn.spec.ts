@@ -42,9 +42,10 @@ describe('not in spec', function() {
       operator: 'not_in',
       rules: [],
       value: 'user-1;user2',
+      silent: false,
     };
     const spec = ruler(rule);
-    await expect(spec.isSatisfied(challenge)).resolves.toEqual(false);
+    await expect(spec.execute(challenge)).resolves.toEqual({ isSatisfied: false, silent: false });
   });
 
   it('should return true for not in with not blacklisted user', async function() {
@@ -69,8 +70,9 @@ describe('not in spec', function() {
       operator: 'not_in',
       rules: [],
       value: 'user-1;user2',
+      silent: false,
     };
     const spec = ruler(rule);
-    await expect(spec.isSatisfied(challenge)).resolves.toEqual(true);
+    await expect(spec.execute(challenge)).resolves.toEqual({ isSatisfied: true, silent: false });
   });
 });

@@ -32,7 +32,7 @@ const acceptMatchingClicked = (container: HTMLElement, convertRule: RuleConverte
     const matchingChallenges = await challengeProcessor(challengeInfo, []);
 
     if (matchingChallenges.length > 0) {
-      matchingChallenges[0].accept();
+      matchingChallenges[0].challenge.accept();
     } else {
       console.log('No matching challenge found');
     }
@@ -55,7 +55,11 @@ const declineUnmatchingClicked = (container: HTMLElement, convertRule: RuleConve
     const challengeProcessor = declineUnmatchingFactory(spec);
     const unmatchedChallenges = await challengeProcessor(challengeInfo, []);
 
-    unmatchedChallenges.forEach(challenge => challenge.decline());
+    unmatchedChallenges.forEach(challengeInfo => {
+      if (!challengeInfo.silent) {
+        challengeInfo.challenge.decline();
+      }
+    });
   } catch (e) {
     console.error(e);
   }

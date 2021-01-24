@@ -1,6 +1,6 @@
 import { headTail, splitRandomElement, Splitter, sumArray } from './utils';
 import { compare, mapOperator, Relation } from './operators';
-import { anySpec, applyCondition, noneSpec, SpecFactory } from './spec';
+import { anySpec, applyCondition, noneSpec, notSpec, SpecFactory } from './spec';
 import { AxiosInstance } from 'axios';
 
 export interface Challenger {
@@ -61,10 +61,20 @@ export type Rule = {
   id: string;
   value: string;
   operator: string;
+  silent: boolean;
 };
 
+export interface SpecResult {
+  isSatisfied: boolean;
+  silent: boolean;
+}
+
+export interface SpecExecutor {
+  (challenge: Challenge): Promise<SpecResult>;
+}
+
 export interface Spec {
-  isSatisfied: (challenge: Challenge) => Promise<boolean>;
+  execute: SpecExecutor;
 }
 
 export const extractNumEncounters = (html: string): number => {
@@ -82,40 +92,40 @@ const compareTeamsFactory = (http: AxiosInstance) => (teams: string, operator: R
   return response.data.some(team => compare(operator)(teams)(team.id));
 };
 
-export const teamSpecFactory = (http: AxiosInstance) => (teams: string, operator: Relation): Spec => ({
-  isSatisfied: compareTeamsFactory(http)(teams, operator),
+export const teamSpecFactory = (http: AxiosInstance) => (teams: string, operator: Relation, silent = false): Spec => ({
+  execute: challenge => compareTeamsFactory(http)(teams, operator)(challenge).then(isSatisfied => ({ isSatisfied, silent })),
 });
 
-export const encounterSpecFactory = (http: AxiosInstance) => (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
+export const encounterSpecFactory = (http: AxiosInstance) => (value: string, operator: Relation, silent = false): Spec => ({
+  execute: async challenge => {
     const response = await http.get(`/@/${challenge.username}/mini`);
     const encounters = extractNumEncounters(response.data);
 
-    return compare(operator)(value)(encounters);
+    return { isSatisfied: compare(operator)(value)(encounters), silent };
   },
 });
 
-export const ratingSpec = (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
-    return compare(operator)(value)(challenge.challenger.rating);
+export const ratingSpec = (value: string, operator: Relation, silent = false): Spec => ({
+  execute: async challenge => {
+    return { isSatisfied: compare(operator)(value)(challenge.challenger.rating), silent };
   },
 });
 
-export const ratedSpec = (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
-    return compare(operator)(!!value)(challenge.rated);
+export const ratedSpec = (value: string, operator: Relation, silent = false): Spec => ({
+  execute: async challenge => {
+    return { isSatisfied: compare(operator)(!!value)(challenge.rated), silent };
   },
 });
 
-export const variantSpec = (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
-    return compare(operator)(value)(challenge.variant.key);
+export const variantSpec = (value: string, operator: Relation, silent = false): Spec => ({
+  execute: async challenge => {
+    return { isSatisfied: compare(operator)(value)(challenge.variant.key), silent };
   },
 });
 
-export const userIdSpec = (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
-    return compare(operator)(value)(challenge.challenger.id);
+export const userIdSpec = (value: string, operator: Relation, silent = false): Spec => ({
+  execute: async challenge => {
+    return { isSatisfied: compare(operator)(value)(challenge.challenger.id), silent };
   },
 });
 
@@ -177,15 +187,15 @@ export const getChallengeInfosFactory = (http: AxiosInstance): ChallengeRetrieve
 };
 
 export interface ChallengeProcessor {
-  (collection: Challenge[], results: Challenge[]): Promise<Challenge[]>;
+  (collection: Challenge[], results: { challenge: Challenge; silent: boolean }[]): Promise<{ challenge: Challenge; silent: boolean }[]>;
 }
 
 const createChallengeProcessor = (
-  matcher: (challenge: Challenge) => Promise<boolean>,
-  followup: (result: boolean, current: Challenge, matched: Challenge[]) => Promise<boolean>,
+  matcher: SpecExecutor,
+  followup: (result: SpecResult, current: Challenge, matched: { challenge: Challenge; silent: boolean }[]) => Promise<boolean>,
   splitter: Splitter
 ): ChallengeProcessor => {
-  const rec = async (collection: Challenge[], results: Challenge[] = []): Promise<Challenge[]> => {
+  const rec = async (collection: Challenge[], results: { challenge: Challenge; silent: boolean }[] = []): Promise<{ challenge: Challenge; silent: boolean }[]> => {
     const { current, other } = splitter(collection);
     if (!current) {
       return results;
@@ -193,7 +203,7 @@ const createChallengeProcessor = (
 
     const result = await matcher(current);
 
-    const matched = result ? results.concat([current]) : results;
+    const matched = result.isSatisfied ? results.concat([{ challenge: current, silent: result.silent }]) : results;
     const shouldContinue = await followup(result, current, matched);
 
     if (!shouldContinue) {
@@ -209,9 +219,7 @@ const createChallengeProcessor = (
 export const declineUnmatchingFactory = (spec: Spec): ChallengeProcessor =>
   createChallengeProcessor(
     async challenge => {
-      const result = await spec.isSatisfied(challenge);
-
-      return !result;
+      return notSpec(spec).execute(challenge);
     },
     async () => true,
     headTail
@@ -219,14 +227,17 @@ export const declineUnmatchingFactory = (spec: Spec): ChallengeProcessor =>
 
 export const processChallengesFactory = (spec: Spec): ChallengeProcessor =>
   createChallengeProcessor(
-    challenge => spec.isSatisfied(challenge),
+    challenge => spec.execute(challenge),
     async (result, current) => {
-      if (!result) {
-        current.decline();
-        return true;
+      if (result.isSatisfied) {
+        return false;
       }
 
-      return false;
+      if (!result.silent) {
+        current.decline();
+      }
+
+      return true;
     },
     splitRandomElement
   );
@@ -246,17 +257,17 @@ export const convertRuleFactory = (specFactory: SpecFactory): RuleConverter => {
 
     switch (rule.id) {
       case 'team-name':
-        return specFactory.teamSpec(rule.value, mapOperator(rule.operator));
+        return specFactory.teamSpec(rule.value, mapOperator(rule.operator), rule.silent);
       case 'encounters':
-        return specFactory.encounterSpec(rule.value, mapOperator(rule.operator));
+        return specFactory.encounterSpec(rule.value, mapOperator(rule.operator), rule.silent);
       case 'rating':
-        return specFactory.ratingSpec(rule.value, mapOperator(rule.operator));
+        return specFactory.ratingSpec(rule.value, mapOperator(rule.operator), rule.silent);
       case 'rated':
-        return specFactory.ratedSpec(rule.value, mapOperator(rule.operator));
+        return specFactory.ratedSpec(rule.value, mapOperator(rule.operator), rule.silent);
       case 'variant':
-        return specFactory.variantSpec(rule.value, mapOperator(rule.operator));
+        return specFactory.variantSpec(rule.value, mapOperator(rule.operator), rule.silent);
       case 'user-id':
-        return specFactory.userIdSpec(rule.value, mapOperator(rule.operator));
+        return specFactory.userIdSpec(rule.value, mapOperator(rule.operator), rule.silent);
     }
 
     return noneSpec;

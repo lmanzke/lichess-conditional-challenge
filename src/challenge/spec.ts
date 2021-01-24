@@ -3,30 +3,30 @@ import { AxiosInstance } from 'axios';
 import { Relation } from '@/challenge/operators';
 
 export const andSpec = (spec1: Spec, spec2: Spec): Spec => ({
-  isSatisfied: async challenge => {
-    const firstResult = await spec1.isSatisfied(challenge);
-    if (!firstResult) {
-      return false;
+  execute: async challenge => {
+    const firstSpecResult = await spec1.execute(challenge);
+    if (!firstSpecResult.isSatisfied) {
+      return firstSpecResult;
     }
-    return spec2.isSatisfied(challenge);
+    return spec2.execute(challenge);
   },
 });
 
 export const orSpec = (spec1: Spec, spec2: Spec): Spec => ({
-  isSatisfied: async challenge => {
-    const firstResult = await spec1.isSatisfied(challenge);
-    if (firstResult) {
-      return true;
+  execute: async challenge => {
+    const firstSpecResult = await spec1.execute(challenge);
+    if (firstSpecResult.isSatisfied) {
+      return firstSpecResult;
     }
-    return spec2.isSatisfied(challenge);
+    return spec2.execute(challenge);
   },
 });
 
 export const notSpec = (spec1: Spec): Spec => ({
-  isSatisfied: async challenge => {
-    const result = await spec1.isSatisfied(challenge);
+  execute: async challenge => {
+    const result = await spec1.execute(challenge);
 
-    return !result;
+    return { isSatisfied: !result.isSatisfied, silent: result.silent };
   },
 });
 
@@ -41,20 +41,20 @@ export const applyCondition = (operator: string, spec1: Spec, spec2: Spec): Spec
 };
 
 export const anySpec: Spec = {
-  isSatisfied: async _challenge => true,
+  execute: async _challenge => ({ isSatisfied: true, silent: false }),
 };
 
 export const noneSpec: Spec = {
-  isSatisfied: async _challenge => false,
+  execute: async _challenge => ({ isSatisfied: false, silent: false }),
 };
 
 export interface SpecFactory {
-  teamSpec(teams: string, operator: Relation): Spec;
-  encounterSpec(value: string, operator: Relation): Spec;
-  ratingSpec(value: string, operator: Relation): Spec;
-  ratedSpec(value: string, operator: Relation): Spec;
-  variantSpec(value: string, operator: Relation): Spec;
-  userIdSpec(value: string, operator: Relation): Spec;
+  teamSpec(teams: string, operator: Relation, silent: boolean): Spec;
+  encounterSpec(value: string, operator: Relation, silent: boolean): Spec;
+  ratingSpec(value: string, operator: Relation, silent: boolean): Spec;
+  ratedSpec(value: string, operator: Relation, silent: boolean): Spec;
+  variantSpec(value: string, operator: Relation, silent: boolean): Spec;
+  userIdSpec(value: string, operator: Relation, silent: boolean): Spec;
 }
 
 export const specFactory = (http: AxiosInstance): SpecFactory => {
