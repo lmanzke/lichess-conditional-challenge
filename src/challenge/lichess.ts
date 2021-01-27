@@ -2,6 +2,11 @@ import { headTail, splitRandomElement, Splitter, sumArray } from './utils';
 import { compare, mapOperator, Relation } from './operators';
 import { anySpec, applyCondition, noneSpec, notSpec, SpecFactory } from './spec';
 import { AxiosInstance } from 'axios';
+import * as E from 'fp-ts/Either';
+import * as IOE from 'fp-ts/IOEither';
+import * as O from 'fp-ts/Option';
+import * as NEA from 'fp-ts/NonEmptyArray';
+import { pipe, unsafeCoerce } from 'fp-ts/function';
 
 export interface Challenger {
   rating: number;
@@ -129,8 +134,12 @@ export const userIdSpec = (value: string, operator: Relation, silent = false): S
   },
 });
 
-export const getChallengeElement = (container: HTMLElement): HTMLDivElement => {
-  return container.getElementsByClassName('challenges')[0] as HTMLDivElement;
+export const getChallengeElement = (container: HTMLElement): IOE.IOEither<Error, HTMLDivElement> => () => {
+  return pipe(
+    container.getElementsByClassName('challenges').item(0),
+    E.fromNullable(Error('Element not found')),
+    E.map(v => unsafeCoerce<Element, HTMLDivElement>(v))
+  );
 };
 
 const getChallengeInfo = (http: AxiosInstance) => async () => {

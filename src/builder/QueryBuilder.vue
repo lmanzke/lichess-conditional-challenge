@@ -69,7 +69,12 @@ export default defineComponent({
     rulesProp: {
       handler(newValue: unknown) {
         const container = $(this.$refs.queryBuilderContainer);
-        container.queryBuilder('setRules', newValue);
+        console.log('Ho');
+        if (newValue === undefined) {
+          container.queryBuilder('reset');
+        } else {
+          container.queryBuilder('setRules', newValue);
+        }
         if (!this.watcherAdded) {
           const vue = this;
           this.watcherAdded = true;
