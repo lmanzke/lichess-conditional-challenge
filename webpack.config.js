@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 const webpack = require('webpack');
 const ejs = require('ejs');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
@@ -24,6 +25,7 @@ const config = {
     },
     extensions: ['.ts', '.vue', '.js'],
   },
+  devtool: 'source-map',
   module: {
     rules: [
       {

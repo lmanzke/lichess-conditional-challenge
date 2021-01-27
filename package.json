@@ -4,10 +4,10 @@
   "description": "A vue.js web extension that allows choosing by team",
   "author": "Lucas Manzke",
   "scripts": {
-    "build": "cross-env NODE_ENV=production webpack --hide-modules",
+    "build": "cross-env NODE_ENV=production webpack",
     "lint": "eslint --ext .js,.vue,.ts src",
     "build-zip": "node scripts/build-zip.ts",
-    "build:dev": "cross-env NODE_ENV=development webpack --hide-modules",
+    "build:dev": "cross-env NODE_ENV=development webpack",
     "prettier": "prettier \"src/**/*.{js,vue}\"",
     "prettier:write": "npm run prettier -- --write",
     "test": "jest",
@@ -79,9 +79,9 @@
     "vue-eslint-parser": "^7.1.1",
     "vue-loader": "^16.0.0-rc.2",
     "web-ext-types": "^2.1.0",
-    "webpack": "^4.44.2",
-    "webpack-cli": "^3.3.10",
-    "webpack-extension-reloader": "^1.1.0"
+    "webpack": "^5.18.0",
+    "webpack-cli": "^4.4.0",
+    "webpack-extension-reloader": "^1.1.4"
   },
   "engines": {
     "node": ">=10"
