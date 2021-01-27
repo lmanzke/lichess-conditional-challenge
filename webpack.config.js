@@ -15,6 +15,9 @@ const config = {
     'challenge/challenge': './challenge/challenge.ts',
     'options/options': './options/options.ts',
   },
+  optimization: {
+    minimize: true,
+  },
   output: {
     path: __dirname + '/dist',
     filename: '[name].js',
@@ -22,6 +25,8 @@ const config = {
   resolve: {
     alias: {
       '@': __dirname + '/src',
+      vue$: 'vue/dist/vue.runtime.esm-bundler.js',
+      vuex$: 'vuex/dist/vuex.esm-bundler.js',
     },
     extensions: ['.ts', '.vue', '.js'],
   },
@@ -83,6 +88,8 @@ const config = {
   plugins: [
     new webpack.DefinePlugin({
       global: 'window',
+      __VUE_OPTIONS_API__: true,
+      __VUE_PROD_DEVTOOLS__: false,
     }),
     new VueLoaderPlugin(),
     new MiniCssExtractPlugin({
@@ -118,9 +125,9 @@ if (config.mode === 'production') {
 
 if (process.env.HMR === 'true') {
   config.plugins = (config.plugins || []).concat([
-    new ExtensionReloader({
-      manifest: __dirname + '/src/manifest.json',
-    }),
+    //new ExtensionReloader({
+    //  manifest: __dirname + '/src/manifest.json',
+    //}),
   ]);
 }
 
