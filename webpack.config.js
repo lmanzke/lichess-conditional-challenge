@@ -16,7 +16,7 @@ const config = {
     'options/options': './options/options.ts',
   },
   optimization: {
-    minimize: true,
+    minimize: process.env.NODE_ENV === 'production',
   },
   output: {
     path: __dirname + '/dist',
