@@ -1,69 +1,69 @@
-import { encounterSpecFactory, ratedSpec, ratingSpec, Spec, teamSpecFactory, userIdSpec, variantSpec } from '@/challenge/lichess';
-import { AxiosInstance } from 'axios';
-import { Relation } from '@/challenge/operators';
+import * as RTE from 'fp-ts/ReaderTaskEither';
+import { Semigroup } from 'fp-ts/Semigroup';
+import { flow, pipe } from 'fp-ts/function';
+import { Monoid } from 'fp-ts/Monoid';
+import { Spec, SpecResult } from '@/challenge/types';
+import { ofSpecReader } from '@/challenge/utils';
 
-export const andSpec = (spec1: Spec, spec2: Spec): Spec => ({
-  execute: async challenge => {
-    const firstSpecResult = await spec1.execute(challenge);
-    if (!firstSpecResult.isSatisfied) {
-      return firstSpecResult;
-    }
-    return spec2.execute(challenge);
-  },
-});
+const andSpec = (spec1: Spec, spec2: Spec): Spec => challenge =>
+  pipe(
+    challenge,
+    spec1,
+    RTE.chain(result => {
+      if (!result.isSatisfied) {
+        return RTE.of(result);
+      }
 
-export const orSpec = (spec1: Spec, spec2: Spec): Spec => ({
-  execute: async challenge => {
-    const firstSpecResult = await spec1.execute(challenge);
-    if (firstSpecResult.isSatisfied) {
-      return firstSpecResult;
-    }
-    return spec2.execute(challenge);
-  },
-});
+      return spec2(challenge);
+    })
+  );
 
-export const notSpec = (spec1: Spec): Spec => ({
-  execute: async challenge => {
-    const result = await spec1.execute(challenge);
+const orSpec = (spec1: Spec, spec2: Spec): Spec => challenge =>
+  pipe(
+    challenge,
+    spec1,
+    RTE.chain(result => {
+      if (result.isSatisfied) {
+        return RTE.of(result);
+      }
 
-    return { isSatisfied: !result.isSatisfied, silent: result.silent };
-  },
-});
+      return spec2(challenge);
+    })
+  );
 
-export const applyCondition = (operator: string, spec1: Spec, spec2: Spec): Spec => {
+export const notSpec = (spec: Spec): Spec =>
+  flow(
+    spec,
+    RTE.map(result => ({ isSatisfied: !result.isSatisfied, silent: result.silent }))
+  );
+
+export const anySpec: Spec = _challenge => ofSpecReader<SpecResult>({ isSatisfied: true, silent: false });
+export const noneSpec: Spec = _challenge => ofSpecReader<SpecResult>({ isSatisfied: false, silent: false });
+
+const andSpecSemigroup: Semigroup<Spec> = {
+  concat: andSpec,
+};
+
+const orSpecSemigroup: Semigroup<Spec> = {
+  concat: orSpec,
+};
+
+const andSpecMonoid: Monoid<Spec> = {
+  concat: andSpecSemigroup.concat,
+  empty: anySpec,
+};
+
+const orSpecMonoid: Monoid<Spec> = {
+  concat: orSpecSemigroup.concat,
+  empty: noneSpec,
+};
+
+export const getSpecMonoid = (operator: string): Monoid<Spec> => {
   switch (operator) {
     case 'AND':
-      return andSpec(spec1, spec2);
+      return andSpecMonoid;
     case 'OR':
     default:
-      return orSpec(spec1, spec2);
+      return orSpecMonoid;
   }
-};
-
-export const anySpec: Spec = {
-  execute: async _challenge => ({ isSatisfied: true, silent: false }),
-};
-
-export const noneSpec: Spec = {
-  execute: async _challenge => ({ isSatisfied: false, silent: false }),
-};
-
-export interface SpecFactory {
-  teamSpec(teams: string, operator: Relation, silent: boolean): Spec;
-  encounterSpec(value: string, operator: Relation, silent: boolean): Spec;
-  ratingSpec(value: string, operator: Relation, silent: boolean): Spec;
-  ratedSpec(value: string, operator: Relation, silent: boolean): Spec;
-  variantSpec(value: string, operator: Relation, silent: boolean): Spec;
-  userIdSpec(value: string, operator: Relation, silent: boolean): Spec;
-}
-
-export const specFactory = (http: AxiosInstance): SpecFactory => {
-  return {
-    teamSpec: teamSpecFactory(http),
-    encounterSpec: encounterSpecFactory(http),
-    ratingSpec: ratingSpec,
-    ratedSpec: ratedSpec,
-    variantSpec: variantSpec,
-    userIdSpec: userIdSpec,
-  };
 };

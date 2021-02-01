@@ -13,7 +13,8 @@ const addPlugin = QueryBuilder => {
   QueryBuilder.define(
     'silent',
 
-    function(options) {
+    function(_options) {
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
       const that = this;
       this.on('ruleToJson.queryBuilder.filter', function(event, rule) {
         event.value.silent = !!rule.silent;
@@ -60,14 +61,13 @@ export default defineComponent({
   },
   mounted() {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const vue = this;
     const container = $(this.$refs.queryBuilderContainer);
     addPlugin($.fn.queryBuilder);
     container.queryBuilder(this.options);
   },
   watch: {
     rulesProp: {
-      handler(newValue: unknown) {
+      handler(newValue) {
         const container = $(this.$refs.queryBuilderContainer);
         console.log('Ho');
         if (newValue === undefined) {
@@ -76,6 +76,7 @@ export default defineComponent({
           container.queryBuilder('setRules', newValue);
         }
         if (!this.watcherAdded) {
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
           const vue = this;
           this.watcherAdded = true;
           container.on('rulesChanged.queryBuilder', function() {

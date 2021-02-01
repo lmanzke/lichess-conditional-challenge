@@ -1,19 +1,16 @@
-import { Challenge, convertRuleFactory, Rule, RuleConverter } from '@/challenge/lichess';
 import MockAdapter from 'axios-mock-adapter';
 import { axiosFactory } from '@/challenge/axios';
-import { SpecFactory, specFactory } from '@/challenge/spec';
 import { AxiosInstance } from 'axios';
+import { Challenge, Rule } from '@/challenge/types';
+import { convertRuleReader } from '@/challenge/lichess';
+import * as E from 'fp-ts/Either';
 
 describe('not in spec', function() {
-  let speccer: SpecFactory;
-  let ruler: RuleConverter;
   let mockAdapter: MockAdapter;
   let axios: AxiosInstance;
   beforeEach(() => {
     axios = axiosFactory();
     mockAdapter = new MockAdapter(axios);
-    speccer = specFactory(axios);
-    ruler = convertRuleFactory(speccer);
   });
 
   afterEach(() => {
@@ -44,8 +41,8 @@ describe('not in spec', function() {
       value: 'user-1;user2',
       silent: false,
     };
-    const spec = ruler(rule);
-    await expect(spec.execute(challenge)).resolves.toEqual({ isSatisfied: false, silent: false });
+    const spec = convertRuleReader(rule);
+    await expect(spec(challenge)(axios)()).resolves.toEqual(E.right({ isSatisfied: false, silent: false }));
   });
 
   it('should return true for not in with not blacklisted user', async function() {
@@ -72,7 +69,7 @@ describe('not in spec', function() {
       value: 'user-1;user2',
       silent: false,
     };
-    const spec = ruler(rule);
-    await expect(spec.execute(challenge)).resolves.toEqual({ isSatisfied: true, silent: false });
+    const spec = convertRuleReader(rule);
+    await expect(spec(challenge)(axios)()).resolves.toEqual(E.right({ isSatisfied: true, silent: false }));
   });
 });

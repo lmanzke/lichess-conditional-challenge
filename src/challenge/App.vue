@@ -6,106 +6,99 @@
 </template>
 
 <script lang="ts">
-import {
-  Challenge,
-  ChallengeProcessor,
-  ChallengeRetriever,
-  declineUnmatchingFactory,
-  getChallengeElement,
-  processChallengesFactory,
-  RuleConverter,
-  Spec,
-} from '@/challenge/lichess';
+import { convertRuleReader, getChallengeElement, getChallengeInfosReader } from '@/challenge/lichess';
 import { getLichessPrefs } from '@/challenge/storage';
 import { defineComponent, provide } from 'vue';
 import { JpexInstance } from 'jpex';
 import * as TE from 'fp-ts/TaskEither';
 import * as RT from 'fp-ts/ReaderTask';
 import * as RTE from 'fp-ts/ReaderTaskEither';
-import * as IO from 'fp-ts/IO';
 import { flow, pipe } from 'fp-ts/function';
-import { sequenceT } from 'fp-ts/Apply';
-import { array } from 'fp-ts/Array';
-import { fromArray, head } from 'fp-ts/NonEmptyArray';
+import { NonEmptyArray } from 'fp-ts/NonEmptyArray';
+import { AxiosInstance } from 'axios';
+import { ensureNonEmptyArrayReader, fromIOSpecReader, ofSpecReader, safeRandomElement, sequenceReaderTaskEither, unknownError } from '@/challenge/utils';
+import { sequenceArray } from 'fp-ts/ReaderTaskEither';
+import { ChallengeInfo, ReaderTypeOf, AppProps, Spec, Challenge, Rule, SpecResult } from '@/challenge/types';
 
-interface Props {
-  container: HTMLElement;
-  dependencies: JpexInstance;
-}
-type ReaderDeps = {
-  retrieveChallenge: ChallengeRetriever;
-  convertRule: RuleConverter;
-  challengeProcessorFactory: (spec: Spec) => ChallengeProcessor;
-};
+const tryGetLichessPrefs: TE.TaskEither<Error, Rule> = TE.tryCatch(() => getLichessPrefs(), unknownError);
+const readerTryLichessPrefs: ReaderTypeOf<Rule> = RTE.fromTaskEither(tryGetLichessPrefs);
 
-type ChallengeInfo = {
-  challenge: Challenge;
-  silent: boolean;
-};
+type SpecProcessorForChallenges = ([spec, challenges]: [Spec, Challenge[]]) => RTE.ReaderTaskEither<AxiosInstance, Error, string>;
 
-const sequenceTaskEither = sequenceT(TE.taskEither);
-const lichessPrefTask = (convertRule: RuleConverter): TE.TaskEither<Error, Spec> =>
-  pipe(
-    TE.tryCatch(
-      () => getLichessPrefs(),
-      reason => Error(String(reason))
-    ),
-    TE.chain(rule => TE.right(convertRule(rule)))
-  );
-const retrieveChallengeTask = (challengeElement: HTMLDivElement, retrieveChallenge: ChallengeRetriever) =>
-  TE.tryCatch(
-    () => retrieveChallenge(challengeElement),
-    reason => Error(String(reason))
-  );
+const matchFirstRandom = (spec: Spec, challenges: Challenge[]) => pipe(challenges, ensureNonEmptyArrayReader, RTE.chain(getFirstRandomChallenge(spec)));
 
-const processChallenges: (args: [Spec, Challenge[]]) => RTE.ReaderTaskEither<ReaderDeps, Error, ChallengeInfo[]> = ([spec, challenges]) => r => {
-  return TE.fromTask(() => {
-    const challengeProcessor = r.challengeProcessorFactory(spec);
-    return challengeProcessor(challenges, []);
-  });
-};
+const getFirstRandomChallenge = (spec: Spec) => (challenges: NonEmptyArray<Challenge>): ReaderTypeOf<ChallengeInfo> => {
+  const { current, other } = safeRandomElement(challenges);
 
-const retrieveData = (challengeElement: HTMLDivElement): RTE.ReaderTaskEither<ReaderDeps, Error, [Spec, Challenge[]]> => r =>
-  sequenceTaskEither(lichessPrefTask(r.convertRule), retrieveChallengeTask(challengeElement, r.retrieveChallenge));
-
-const ensureChallenge = (challengeInfo: ChallengeInfo[]) => {
   return pipe(
-    RTE.of<ReaderDeps, Error, ChallengeInfo[]>(challengeInfo),
-    RTE.chain(v => RTE.fromOption(() => Error('No matching challenge'))(fromArray(v)))
+    current,
+    spec,
+    RTE.chain(specResult => {
+      if (specResult.isSatisfied) {
+        return ofSpecReader({ challenge: current, isSatisfied: true, silent: false });
+      }
+      if (specResult.silent) {
+        return matchFirstRandom(spec, other);
+      }
+
+      return pipe(
+        fromIOSpecReader(current.decline),
+        RTE.chain(() => matchFirstRandom(spec, other))
+      );
+    })
   );
 };
 
-const acceptFirstChallenge = flow(
-  RTE.chain(ensureChallenge),
-  RTE.map(head),
-  RTE.chain(challenge => RTE.fromIO(challenge.challenge.accept))
-);
-
-const declineAllChallenges = RTE.chain<ReaderDeps, Error, ChallengeInfo[], void>(challengeInfos =>
+const acceptChallengeInfo = (challengeInfo: ChallengeInfo): ReaderTypeOf<string> =>
   pipe(
-    challengeInfos,
-    v => v.map(challengeInfo => challengeInfo.challenge.decline),
-    array.sequence(IO.io),
-    IO.map(challenges => `Declined ${challenges.length} challenges`),
-    v => RTE.fromIO<ReaderDeps, Error, void>(v)
-  )
-);
+    fromIOSpecReader(challengeInfo.challenge.accept),
+    RTE.map(() => 'Accepted a challenge')
+  );
 
-const processContainerWithDeps = (container: HTMLElement, e: (ma: RTE.ReaderTaskEither<ReaderDeps, Error, ChallengeInfo[]>) => RTE.ReaderTaskEither<ReaderDeps, Error, void>) =>
+const tryGetSpecReader = pipe(
+  readerTryLichessPrefs,
+  RTE.chain(rule => RTE.of(convertRuleReader(rule)))
+);
+const tryGetSpecWithChallenges = (element: HTMLElement) =>
   pipe(
-    getChallengeElement(container),
+    element,
+    getChallengeElement,
     RTE.fromIOEither,
-    RTE.chain(retrieveData),
-    RTE.chain(processChallenges),
-    e,
-    RTE.fold(
-      error => RT.fromIO(() => console.log(error)),
-      () =>
-        RT.fromIO(() => {
-          console.log('Challenges processed');
-        })
+    RTE.chain(element => sequenceReaderTaskEither(tryGetSpecReader, getChallengeInfosReader(element)))
+  );
+const acceptFirstMatchingChallengeProcessor: SpecProcessorForChallenges = ([spec, challenges]) => pipe(matchFirstRandom(spec, challenges), RTE.chain(acceptChallengeInfo));
+const declineAllUnmatchingProcessor: SpecProcessorForChallenges = ([spec, challenges]) =>
+  pipe(
+    challenges.map(challenge =>
+      pipe(
+        challenge,
+        spec,
+        RTE.map<SpecResult, ChallengeInfo>(result => ({ ...result, challenge }))
+      )
+    ),
+    sequenceArray,
+    RTE.map(v => v.filter(specResult => !specResult.isSatisfied)),
+    RTE.chain(unsatisfiedChallenges =>
+      RTE.fromIO(() => {
+        const unsilentChallenges = unsatisfiedChallenges.filter(unsatisfiedChallenge => !unsatisfiedChallenge.silent);
+        unsilentChallenges.forEach(unsilentChallenge => {
+          unsilentChallenge.challenge.decline();
+        });
+
+        return 'Declined ' + unsilentChallenges.length + ' challenges';
+      })
     )
   );
+
+const acceptFirstMatchingForElement = flow(tryGetSpecWithChallenges, RTE.chain(acceptFirstMatchingChallengeProcessor));
+const declineAllUnmatchingForElement = flow(tryGetSpecWithChallenges, RTE.chain(declineAllUnmatchingProcessor));
+
+const logResult = RTE.fold<AxiosInstance, Error, string, void>(
+  left => RT.fromIO(() => console.log(left.message)),
+  right => RT.fromIO(() => console.log(right))
+);
+const logAcceptFirstMatchingForElement = flow(acceptFirstMatchingForElement, logResult);
+const logDeclineAllUnmatchingForElement = flow(declineAllUnmatchingForElement, logResult);
 
 export default defineComponent({
   props: {
@@ -118,28 +111,16 @@ export default defineComponent({
       required: true,
     },
   },
-  setup(props: Props) {
+  setup(props: AppProps) {
     provide('dependencies', props.dependencies);
-    const ruleConverter = props.dependencies.resolve<RuleConverter>('ruleConverter');
-    const challengeRetriever = props.dependencies.resolve<ChallengeRetriever>('challengeRetriever');
+    const http = props.dependencies.resolve<AxiosInstance>('axios');
+
+    const acceptMatchingClicked = logAcceptFirstMatchingForElement(props.container)(http);
+    const declineUnmatchingClicked = logDeclineAllUnmatchingForElement(props.container)(http);
 
     return {
-      acceptMatchingClicked: processContainerWithDeps(
-        props.container,
-        acceptFirstChallenge
-      )({
-        retrieveChallenge: challengeRetriever,
-        convertRule: ruleConverter,
-        challengeProcessorFactory: processChallengesFactory,
-      }),
-      declineUnmatchingClicked: processContainerWithDeps(
-        props.container,
-        declineAllChallenges
-      )({
-        retrieveChallenge: challengeRetriever,
-        convertRule: ruleConverter,
-        challengeProcessorFactory: declineUnmatchingFactory,
-      }),
+      acceptMatchingClicked,
+      declineUnmatchingClicked,
     };
   },
 });

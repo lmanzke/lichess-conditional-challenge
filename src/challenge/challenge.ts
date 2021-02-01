@@ -11,6 +11,7 @@ import { pipe } from 'fp-ts/function';
 import { Store } from 'vuex';
 import { ReaderTaskEither } from 'fp-ts/ReaderTaskEither';
 import { wait3 } from '@/util/tagless';
+import { State } from '@/store';
 
 declare const global: { browser: unknown };
 
@@ -51,7 +52,7 @@ const mountContainer = (element: HTMLElement): ReaderTaskEither<JpexInstance, st
     pipe(
       initIO(element),
       IO.chain(rootElement => () => {
-        const store = r.resolve<Store<any>>('store');
+        const store = r.resolve<Store<State>>('store');
         return createApp(App, { container: element, dependencies: r })
           .use(store)
           .mount(rootElement);
