@@ -1,5 +1,5 @@
 import { fromArray, NonEmptyArray } from 'fp-ts/NonEmptyArray';
-import { flow, pipe } from 'fp-ts/function';
+import { Endomorphism, flow, pipe } from 'fp-ts/function';
 import { getRefinement } from 'fp-ts/Option';
 import * as E from 'fp-ts/Either';
 import { sequenceT } from 'fp-ts/Apply';
@@ -7,6 +7,8 @@ import * as RTE from 'fp-ts/ReaderTaskEither';
 import { ReaderTypeOf } from '@/challenge/types';
 import { AxiosInstance } from 'axios';
 import * as IO from 'fp-ts/IO';
+import { Kind, Kind2, Kind3, URIS, URIS2, URIS3 } from 'fp-ts/HKT';
+import { MonadIO1, MonadIO2, MonadIO3 } from 'fp-ts/MonadIO';
 
 export const sum = (a: number, b: number): number => a + b;
 export const sumArray = (arr: number[]): number => arr.reduce(sum, 0);
@@ -88,3 +90,27 @@ export const sequenceReaderTaskEither = sequenceT(RTE.readerTaskEither);
 export const ofSpecReader: <A>(_v: A) => RTE.ReaderTaskEither<AxiosInstance, Error, A> = <A>(v: A) => RTE.of<AxiosInstance, Error, A>(v);
 export const fromIOSpecReader: <A>(_v: IO.IO<A>) => RTE.ReaderTaskEither<AxiosInstance, Error, A> = <A>(v: IO.IO<A>) => RTE.fromIO<AxiosInstance, Error, A>(v);
 export const unknownError = flow(String, Error);
+
+export const tap = <M extends URIS>(hkt: MonadIO1<M>) => <A>(f: (a: A) => void): Endomorphism<Kind<M, A>> => (fa: Kind<M, A>) =>
+  hkt.chain(fa, v =>
+    hkt.fromIO(() => {
+      f(v);
+      return v;
+    })
+  );
+
+export const tap2 = <M extends URIS2>(hkt: MonadIO2<M>) => <A, B>(f: (a: B) => void): Endomorphism<Kind2<M, A, B>> => (fa: Kind2<M, A, B>) =>
+  hkt.chain(fa, v =>
+    hkt.fromIO(() => {
+      f(v);
+      return v;
+    })
+  );
+
+export const tap3 = <M extends URIS3>(hkt: MonadIO3<M>) => <A, B, C>(f: (a: C) => void): Endomorphism<Kind3<M, A, B, C>> => (fa: Kind3<M, A, B, C>) =>
+  hkt.chain(fa, v =>
+    hkt.fromIO(() => {
+      f(v);
+      return v;
+    })
+  );

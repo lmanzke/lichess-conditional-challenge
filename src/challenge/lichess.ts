@@ -1,6 +1,6 @@
 import { ofSpecReader, sumArray, unknownError } from './utils';
 import { compare, mapOperator, Relation } from './operators';
-import { getSpecMonoid, noneSpec } from './spec';
+import { getSpecMonoid } from './spec';
 import { AxiosInstance } from 'axios';
 import * as E from 'fp-ts/Either';
 import * as IOE from 'fp-ts/IOEither';
@@ -8,7 +8,7 @@ import { pipe, unsafeCoerce } from 'fp-ts/function';
 import * as RTE from 'fp-ts/ReaderTaskEither';
 import * as TE from 'fp-ts/TaskEither';
 import { foldMap } from 'fp-ts/Array';
-import { Challenge, LiChessChallenge, Spec, Rule, SpecResult, Team } from '@/challenge/types';
+import { Challenge, DeclineReason, LiChessChallenge, Rule, RuleType, RuleValueType, Spec, SpecResult, Team } from '@/challenge/types';
 
 export const extractNumEncounters = (html: string): number => {
   const div = document.createElement('div');
@@ -19,7 +19,7 @@ export const extractNumEncounters = (html: string): number => {
   return sumArray(scores);
 };
 
-const compareTeams = (teams: string, operator: Relation) => (teamItems: Team[]) => teamItems.some(team => compare(operator)(teams)(team.id));
+const compareTeams = (teams: RuleValueType, operator: Relation) => (teamItems: Team[]) => teamItems.some(team => compare(operator)(teams)(team.id));
 
 const getTeamsOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither<AxiosInstance, Error, Team[]> => http =>
   pipe(
@@ -34,24 +34,36 @@ const getNumEncountersOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither
     TE.map(extractNumEncounters)
   );
 
-export const teamReaderSpec = (teams: string, operator: Relation, silent = false): Spec => (challenge: Challenge) =>
-  pipe(challenge, getTeamsOfChallenge, RTE.map(compareTeams(teams, operator)), RTE.map(getSpecResult(silent)));
+type DeclinedHandler = () => { silent: boolean; reason: DeclineReason };
+const defaultDeclineHandler = () => ({ silent: false, reason: DeclineReason.RULE_FAILED });
 
-export const encounterSpec = (value: string, operator: Relation, silent = false): Spec => challenge =>
-  pipe(challenge, getNumEncountersOfChallenge, RTE.map(compare(operator)(value)), RTE.map(getSpecResult(silent)));
+export const teamReaderSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec => (challenge: Challenge) =>
+  pipe(challenge, getTeamsOfChallenge, RTE.map(compareTeams(value, operator)), RTE.map(getSpecResult(declineHandler)));
 
-export const simpleSpec = (mapperFn: (challenge: Challenge) => string | number | boolean) => (value: string, operator: Relation, silent = false): Spec => (challenge: Challenge) =>
-  pipe(challenge, mapperFn, compare(operator)(value), getSpecResult(silent), ofSpecReader);
+export const encounterSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec => challenge =>
+  pipe(challenge, getNumEncountersOfChallenge, RTE.map(compare(operator)(value)), RTE.map(getSpecResult(declineHandler)));
+
+export const simpleSpec = (mapperFn: (challenge: Challenge) => RuleValueType) => (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec => (
+  challenge: Challenge
+) => pipe(challenge, mapperFn, compare(operator)(value), getSpecResult(declineHandler), ofSpecReader);
 
 export const ratingReaderSpec = simpleSpec(challenge => challenge.challenger.rating);
 export const ratedReaderSpec = simpleSpec(challenge => challenge.rated);
 export const variantReaderSpec = simpleSpec(challenge => challenge.variant.key);
 export const userIdReaderSpec = simpleSpec(challenge => challenge.challenger.id);
 
-const getSpecResult = (silent: boolean) => (result: boolean): SpecResult => ({
-  isSatisfied: result,
-  silent,
-});
+const getSpecResult = (declineHandler: DeclinedHandler) => (result: boolean): SpecResult => {
+  if (result) {
+    return {
+      isSatisfied: true,
+    };
+  }
+
+  return {
+    isSatisfied: false,
+    ...declineHandler(),
+  };
+};
 
 export const getChallengeElement = (container: HTMLElement): IOE.IOEither<Error, HTMLDivElement> => () => {
   return pipe(
@@ -93,13 +105,21 @@ export const getChallengeInfosReader = (challengeContainerElement: HTMLElement):
 
         const acceptButton = v.getElementsByClassName('accept')[0] as HTMLButtonElement;
         const declineButton = v.getElementsByClassName('decline')[0] as HTMLButtonElement;
+        const declineReasonSelect = v.getElementsByClassName('decline-reason')[0] as HTMLSelectElement;
 
         const accept = () => {
           acceptButton.click();
         };
 
-        const decline = () => {
-          declineButton.click();
+        const decline = (reason: DeclineReason) => () => {
+          if (reason === DeclineReason.RULE_FAILED) {
+            declineButton.click();
+            return;
+          }
+
+          declineReasonSelect.value = reason;
+          const event = new Event('change');
+          declineReasonSelect.dispatchEvent(event);
         };
         const newChallenge: Challenge = {
           userLink,
@@ -115,28 +135,115 @@ export const getChallengeInfosReader = (challengeContainerElement: HTMLElement):
     })
   );
 
-const mapRuleName = (ruleName: string) => {
+const getRuleTypeFromName = (ruleName: string): RuleType => {
   switch (ruleName) {
-    case 'team-name':
-      return teamReaderSpec;
-    case 'encounters':
-      return encounterSpec;
-    case 'rating':
-      return ratingReaderSpec;
-    case 'rated':
-      return ratedReaderSpec;
-    case 'variant':
-      return variantReaderSpec;
-    case 'user-id':
-      return userIdReaderSpec;
+    case RuleType.TEAM_NAME:
+      return RuleType.TEAM_NAME;
+    case RuleType.ENCOUNTERS:
+      return RuleType.ENCOUNTERS;
+    case RuleType.RATING:
+      return RuleType.RATING;
+    case RuleType.RATED:
+      return RuleType.RATED;
+    case RuleType.VARIANT:
+      return RuleType.VARIANT;
+    case RuleType.USER_ID:
+      return RuleType.USER_ID;
     default:
-      return () => noneSpec;
+      return RuleType.TEAM_NAME;
   }
 };
 
+const mapRuleName = (ruleType: RuleType) => {
+  switch (ruleType) {
+    case RuleType.TEAM_NAME:
+      return teamReaderSpec;
+    case RuleType.ENCOUNTERS:
+      return encounterSpec;
+    case RuleType.RATING:
+      return ratingReaderSpec;
+    case RuleType.RATED:
+      return ratedReaderSpec;
+    case RuleType.VARIANT:
+      return variantReaderSpec;
+    case RuleType.USER_ID:
+      return userIdReaderSpec;
+  }
+};
+
+const getDeclineHandler = (value: RuleValueType, ruleType: RuleType, operator: Relation, silent: boolean): DeclinedHandler => () => {
+  const unmappedRuleTypes: RuleType[] = [RuleType.ENCOUNTERS, RuleType.TEAM_NAME, RuleType.USER_ID, RuleType.RATING];
+
+  if (unmappedRuleTypes.includes(ruleType)) {
+    return {
+      silent,
+      reason: DeclineReason.RULE_FAILED,
+    };
+  }
+
+  if (ruleType === RuleType.RATED) {
+    return {
+      silent,
+      reason: value ? DeclineReason.ONLY_RATED : DeclineReason.ONLY_UNRATED,
+    };
+  }
+
+  if (!Array.isArray(value) || value.length === 0) {
+    return {
+      silent,
+      reason: DeclineReason.RULE_FAILED,
+    };
+  }
+
+  if (value.length !== 1) {
+    return {
+      silent,
+      reason: DeclineReason.NOT_THIS_VARIANT,
+    };
+  }
+
+  if (value[0] === 'standard') {
+    return {
+      silent,
+      reason: DeclineReason.NO_VARIANTS,
+    };
+  }
+
+  return {
+    silent,
+    reason: DeclineReason.NOT_THIS_VARIANT,
+  };
+};
+
+const mapRuleValue = (ruleType: RuleType, value: RuleValueType): RuleValueType => {
+  if ([RuleType.TEAM_NAME, RuleType.USER_ID, RuleType.VARIANT].includes(ruleType)) {
+    return value;
+  }
+  if ([RuleType.RATED].includes(ruleType)) {
+    return !!value;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0;
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  return parseInt(value);
+};
+
 const mapSimpleRule = (rule: Rule): Spec => {
-  const ruleConstructor = mapRuleName(rule.id);
-  return ruleConstructor(rule.value, mapOperator(rule.operator), rule.silent);
+  const ruleType = getRuleTypeFromName(rule.id);
+  const ruleConstructor = mapRuleName(ruleType);
+  const operator = mapOperator(rule.operator);
+  const mappedValue = mapRuleValue(ruleType, rule.value);
+  return ruleConstructor(mappedValue, operator, getDeclineHandler(mappedValue, ruleType, operator, rule.silent));
 };
 
 export const convertRuleReader = (rule: Rule): Spec => {

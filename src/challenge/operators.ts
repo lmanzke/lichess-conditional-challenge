@@ -2,6 +2,7 @@ import { ordNumber } from 'fp-ts/Ord';
 import * as O from 'fp-ts/Option';
 import { Ordering } from 'fp-ts/Ordering';
 import { flow, not, Predicate } from 'fp-ts/function';
+import { RuleValueType } from '@/challenge/types';
 
 export enum Relation {
   LESS_THAN = 'LT',
@@ -42,13 +43,17 @@ export const mapOperator = (operator: string): Relation => {
 export const ordOptionNumber = O.getOrd(ordNumber);
 export const eqOptionNumber = O.getEq(ordNumber);
 
-export const toNumber = (value: string | number | boolean | undefined | null): O.Option<number> => {
+export const toNumber = (value: RuleValueType | undefined | null): O.Option<number> => {
   if (typeof value === 'undefined' || typeof value === 'boolean' || value === null) {
     return O.none;
   }
 
   if (typeof value === 'number') {
     return O.some(value);
+  }
+
+  if (Array.isArray(value)) {
+    return O.none;
   }
 
   const parsed = parseFloat(value);
@@ -59,9 +64,7 @@ export const toNumber = (value: string | number | boolean | undefined | null): O
   return O.some(parsed);
 };
 
-export const numberComparison = (predicate: Predicate<Ordering>) => (value: string | number | boolean | number[] | string[]): Predicate<string | number | boolean> => (
-  candidate: string | number | boolean
-) => {
+export const numberComparison = (predicate: Predicate<Ordering>) => (value: RuleValueType | number[] | string[]): Predicate<RuleValueType> => (candidate: RuleValueType) => {
   if (Array.isArray(value)) {
     return false;
   }
@@ -101,7 +104,7 @@ const isNumberArray = (value: unknown[]): value is number[] => {
   return value.every(v => typeof v === 'number');
 };
 
-const isIn = (value: string | number | boolean | number[] | string[]): Predicate<string | number | boolean> => (candidate: string | number | boolean) => {
+const isIn = (value: RuleValueType | number[] | string[]): Predicate<RuleValueType> => (candidate: RuleValueType) => {
   if (typeof value === 'number' || typeof value === 'boolean') {
     return false;
   }
@@ -133,7 +136,7 @@ const optionMax = (numberOptions: O.Option<number>[]) =>
     return ordNumber.compare(max, currentValue) > 0 ? max : currentValue;
   }, Number.MIN_VALUE);
 
-const isBetween = (value: string | number | boolean | number[] | string[]): Predicate<string | number | boolean> => (candidate: string | number | boolean) => {
+const isBetween = (value: RuleValueType | number[] | string[]): Predicate<RuleValueType> => (candidate: RuleValueType) => {
   if (typeof candidate !== 'number') {
     return false;
   }
@@ -159,7 +162,7 @@ const isBetween = (value: string | number | boolean | number[] | string[]): Pred
 
 const isNotIn = flow(isIn, not);
 
-export const compare = (relation: Relation): ((value: string | number | boolean | number[] | string[]) => Predicate<string | number | boolean>) => {
+export const compare = (relation: Relation): ((value: RuleValueType | number[] | string[]) => Predicate<RuleValueType>) => {
   switch (relation) {
     case Relation.LESS_THAN:
       return lessThan;

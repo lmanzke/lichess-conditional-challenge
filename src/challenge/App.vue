@@ -12,35 +12,49 @@ import { defineComponent, provide } from 'vue';
 import { JpexInstance } from 'jpex';
 import * as RT from 'fp-ts/ReaderTask';
 import * as RTE from 'fp-ts/ReaderTaskEither';
-import { flow, pipe } from 'fp-ts/function';
+import { Endomorphism, flow, pipe } from 'fp-ts/function';
 import { NonEmptyArray } from 'fp-ts/NonEmptyArray';
 import { AxiosInstance } from 'axios';
-import { ensureNonEmptyArrayReader, fromIOSpecReader, ofSpecReader, safeRandomElement, sequenceReaderTaskEither, unknownError } from '@/challenge/utils';
+import { ensureNonEmptyArrayReader, fromIOSpecReader, ofSpecReader, safeRandomElement, sequenceReaderTaskEither, tap3 } from '@/challenge/utils';
 import { sequenceArray } from 'fp-ts/ReaderTaskEither';
-import { ChallengeInfo, ReaderTypeOf, AppProps, Spec, Challenge, Rule, SpecResult } from '@/challenge/types';
+import {
+  ChallengeInfo,
+  ReaderTypeOf,
+  AppProps,
+  Spec,
+  Challenge,
+  Rule,
+  SpecResult,
+  challengeInfoIsUnsatisfied,
+  specResultIsSatisfied,
+  SatisfyingChallengeInfo,
+} from '@/challenge/types';
+import { filter } from 'fp-ts/Array';
 
-const readerTryLichessPrefs: ReaderTypeOf<Rule> = RTE.fromTaskEither(getLichessPrefs);
+const tapRTE = tap3(RTE.readerTaskEither);
+const _logValue: Endomorphism<ReaderTypeOf<unknown>> = tapRTE(console.log);
+const readerTryLichessPrefs: ReaderTypeOf<Rule> = pipe(getLichessPrefs, RTE.fromTaskEither);
 
 type SpecProcessorForChallenges = ([spec, challenges]: [Spec, Challenge[]]) => RTE.ReaderTaskEither<AxiosInstance, Error, string>;
 
 const matchFirstRandom = (spec: Spec, challenges: Challenge[]) => pipe(challenges, ensureNonEmptyArrayReader, RTE.chain(getFirstRandomChallenge(spec)));
 
-const getFirstRandomChallenge = (spec: Spec) => (challenges: NonEmptyArray<Challenge>): ReaderTypeOf<ChallengeInfo> => {
+const getFirstRandomChallenge = (spec: Spec) => (challenges: NonEmptyArray<Challenge>): ReaderTypeOf<SatisfyingChallengeInfo> => {
   const { current, other } = safeRandomElement(challenges);
 
   return pipe(
     current,
     spec,
     RTE.chain(specResult => {
-      if (specResult.isSatisfied) {
-        return ofSpecReader({ challenge: current, isSatisfied: true, silent: false });
+      if (specResultIsSatisfied(specResult)) {
+        return ofSpecReader({ challenge: current, isSatisfied: true });
       }
       if (specResult.silent) {
         return matchFirstRandom(spec, other);
       }
 
       return pipe(
-        fromIOSpecReader(current.decline),
+        fromIOSpecReader(current.decline(specResult.reason)),
         RTE.chain(() => matchFirstRandom(spec, other))
       );
     })
@@ -75,12 +89,12 @@ const declineAllUnmatchingProcessor: SpecProcessorForChallenges = ([spec, challe
       )
     ),
     sequenceArray,
-    RTE.map(v => v.filter(specResult => !specResult.isSatisfied)),
+    RTE.map(v => filter(challengeInfoIsUnsatisfied)(v as ChallengeInfo[])),
     RTE.chain(unsatisfiedChallenges =>
       RTE.fromIO(() => {
         const unsilentChallenges = unsatisfiedChallenges.filter(unsatisfiedChallenge => !unsatisfiedChallenge.silent);
         unsilentChallenges.forEach(unsilentChallenge => {
-          unsilentChallenge.challenge.decline();
+          unsilentChallenge.challenge.decline(unsilentChallenge.reason)();
         });
 
         return 'Declined ' + unsilentChallenges.length + ' challenges';

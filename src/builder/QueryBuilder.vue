@@ -69,7 +69,6 @@ export default defineComponent({
     rulesProp: {
       handler(newValue) {
         const container = $(this.$refs.queryBuilderContainer);
-        console.log('Ho');
         if (newValue === undefined) {
           container.queryBuilder('reset');
         } else {

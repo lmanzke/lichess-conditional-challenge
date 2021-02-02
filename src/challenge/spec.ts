@@ -1,8 +1,8 @@
 import * as RTE from 'fp-ts/ReaderTaskEither';
 import { Semigroup } from 'fp-ts/Semigroup';
-import { flow, pipe } from 'fp-ts/function';
+import { pipe } from 'fp-ts/function';
 import { Monoid } from 'fp-ts/Monoid';
-import { Spec, SpecResult } from '@/challenge/types';
+import { DeclineReason, Spec, SpecResult } from '@/challenge/types';
 import { ofSpecReader } from '@/challenge/utils';
 
 const andSpec = (spec1: Spec, spec2: Spec): Spec => challenge =>
@@ -31,14 +31,8 @@ const orSpec = (spec1: Spec, spec2: Spec): Spec => challenge =>
     })
   );
 
-export const notSpec = (spec: Spec): Spec =>
-  flow(
-    spec,
-    RTE.map(result => ({ isSatisfied: !result.isSatisfied, silent: result.silent }))
-  );
-
-export const anySpec: Spec = _challenge => ofSpecReader<SpecResult>({ isSatisfied: true, silent: false });
-export const noneSpec: Spec = _challenge => ofSpecReader<SpecResult>({ isSatisfied: false, silent: false });
+export const anySpec: Spec = _challenge => ofSpecReader<SpecResult>({ isSatisfied: true });
+export const noneSpec: Spec = _challenge => ofSpecReader<SpecResult>({ isSatisfied: false, silent: false, reason: DeclineReason.RULE_FAILED });
 
 const andSpecSemigroup: Semigroup<Spec> = {
   concat: andSpec,
