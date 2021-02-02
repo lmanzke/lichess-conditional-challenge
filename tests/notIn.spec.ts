@@ -1,7 +1,7 @@
 import MockAdapter from 'axios-mock-adapter';
 import { axiosFactory } from '@/challenge/axios';
 import { AxiosInstance } from 'axios';
-import { Challenge, Rule } from '@/challenge/types';
+import { Challenge, DeclineReason, Rule } from '@/challenge/types';
 import { convertRuleReader } from '@/challenge/lichess';
 import * as E from 'fp-ts/Either';
 
@@ -42,7 +42,7 @@ describe('not in spec', function() {
       silent: false,
     };
     const spec = convertRuleReader(rule);
-    await expect(spec(challenge)(axios)()).resolves.toEqual(E.right({ isSatisfied: false, silent: false }));
+    await expect(spec(challenge)(axios)()).resolves.toEqual(E.right({ isSatisfied: false, reason: DeclineReason.RULE_FAILED, silent: false }));
   });
 
   it('should return true for not in with not blacklisted user', async function() {
@@ -70,6 +70,6 @@ describe('not in spec', function() {
       silent: false,
     };
     const spec = convertRuleReader(rule);
-    await expect(spec(challenge)(axios)()).resolves.toEqual(E.right({ isSatisfied: true, silent: false }));
+    await expect(spec(challenge)(axios)()).resolves.toEqual(E.right({ isSatisfied: true }));
   });
 });

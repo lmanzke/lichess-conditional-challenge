@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-empty-function */
 import axios, { AxiosInstance } from 'axios';
 import { Relation } from '@/challenge/operators';
-import { Team } from '@/challenge/types';
+import { DeclineReason, Team } from '@/challenge/types';
 import { teamReaderSpec } from '@/challenge/lichess';
 import * as E from 'fp-ts/Either';
 
@@ -37,7 +37,7 @@ describe('compareTeams', function() {
         rating: 1200,
         id: 'any',
       },
-      decline(): void {},
+      decline: (_reason: DeclineReason) => () => {},
       id: 'challenger1',
       rated: false,
       userLink: '',
