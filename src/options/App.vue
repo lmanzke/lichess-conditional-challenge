@@ -27,7 +27,7 @@ export default defineComponent({
   computed: {
     queryBuilderOptions(): unknown {
       return {
-        plugins: ['bt-checkbox'],
+        plugins: ['bt-checkbox', 'silent'],
         filters: [
           {
             id: 'team-name',
@@ -92,6 +92,18 @@ export default defineComponent({
       if (result.lichessTeamRules) {
         const { valid: _valid, ...rules } = JSON.parse(result.lichessTeamRules);
         this.queryBuilderRules = rules;
+      } else {
+        this.queryBuilderRules = {
+          condition: 'AND',
+          rules: [
+            {
+              id: 'rating',
+              operator: 'greater',
+              value: 0,
+            },
+          ],
+          valid: true,
+        };
       }
     });
   },

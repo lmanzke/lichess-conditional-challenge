@@ -4,10 +4,45 @@
   </div>
 </template>
 
-<script lang="ts">
+<script>
 import $ from 'jquery';
 import 'jQuery-QueryBuilder';
 import { defineComponent } from 'vue';
+
+const addPlugin = QueryBuilder => {
+  QueryBuilder.define(
+    'silent',
+
+    function(_options) {
+      // eslint-disable-next-line @typescript-eslint/no-this-alias
+      const that = this;
+      this.on('ruleToJson.queryBuilder.filter', function(event, rule) {
+        event.value.silent = !!rule.silent;
+      });
+      this.on('jsonToRule.queryBuilder.filter', function(event, json) {
+        if (event.value.constructor.name !== 'Rule') {
+          return;
+        }
+        if (event && event.value) {
+          event.value.silent = !!json.silent;
+        }
+        event.value.$el.find('input.silent').prop('checked', !!json.silent);
+      });
+      this.on('afterCreateRuleFilters', function(e, rule) {
+        const label = $('<label class="silent-label">Silent</label>');
+        const input = $('<input class="silent" type="checkbox"/>');
+
+        rule.$el.append(label);
+        rule.$el.append(input);
+        input.on('change', v => {
+          rule.silent = v.target.checked;
+          that.trigger('rulesChanged');
+        });
+      });
+    },
+    {}
+  );
+};
 
 export default defineComponent({
   name: 'QueryBuilder',
@@ -16,6 +51,9 @@ export default defineComponent({
       type: Object,
     },
   },
+  data: () => ({
+    watcherAdded: false,
+  }),
   computed: {
     rulesProp() {
       return this.options.rules;
@@ -23,25 +61,34 @@ export default defineComponent({
   },
   mounted() {
     // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const vue = this;
     const container = $(this.$refs.queryBuilderContainer);
+    addPlugin($.fn.queryBuilder);
     container.queryBuilder(this.options);
-    container.on('rulesChanged.queryBuilder', function() {
-      const model = $(this).queryBuilder('getModel');
-      if (!model) {
-        return;
-      }
-      const rules = $(this).queryBuilder('getRules');
-      if (rules) {
-        vue.$emit('rules-changed', rules);
-      }
-    });
   },
   watch: {
     rulesProp: {
-      handler(newValue: unknown) {
+      handler(newValue) {
         const container = $(this.$refs.queryBuilderContainer);
-        container.queryBuilder('setRules', newValue);
+        if (newValue === undefined) {
+          container.queryBuilder('reset');
+        } else {
+          container.queryBuilder('setRules', newValue);
+        }
+        if (!this.watcherAdded) {
+          // eslint-disable-next-line @typescript-eslint/no-this-alias
+          const vue = this;
+          this.watcherAdded = true;
+          container.on('rulesChanged.queryBuilder', function() {
+            const model = $(this).queryBuilder('getModel');
+            if (!model) {
+              return;
+            }
+            const rules = $(this).queryBuilder('getRules');
+            if (rules) {
+              vue.$emit('rules-changed', rules);
+            }
+          });
+        }
       },
     },
   },
@@ -49,6 +96,12 @@ export default defineComponent({
 </script>
 
 <style>
+.silent-label {
+  display: inline-block !important;
+  color: white;
+  margin-right: 10px !important;
+}
+
 .query-builder,
 .query-builder * {
   margin: 0;

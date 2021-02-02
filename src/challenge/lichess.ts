@@ -1,71 +1,14 @@
-import { headTail, splitRandomElement, Splitter, sumArray } from './utils';
+import { ofSpecReader, sumArray, unknownError } from './utils';
 import { compare, mapOperator, Relation } from './operators';
-import { anySpec, applyCondition, noneSpec, SpecFactory } from './spec';
+import { getSpecMonoid } from './spec';
 import { AxiosInstance } from 'axios';
-
-export interface Challenger {
-  rating: number;
-  id: string;
-}
-
-export interface Variant {
-  key: string;
-}
-
-export interface Challenge {
-  id: string;
-  userLink: string;
-  username: string;
-  challenger: Challenger;
-  rated: boolean;
-  variant: Variant;
-  accept: () => void;
-  decline: () => void;
-}
-
-export interface Matchup {
-  users: {
-    [key: string]: number;
-    nbGames: number;
-  };
-  matchup?: Matchup;
-}
-
-export interface LiChessChallenge {
-  id: string;
-  challenger: Challenger;
-  rated: boolean;
-  variant: Variant;
-}
-
-export interface LichessUser {
-  id: string;
-  name: string;
-  patron?: boolean;
-}
-
-export interface Team {
-  id: string;
-  name: string;
-  description: string;
-  open: boolean;
-  leader: LichessUser;
-  leaders: LichessUser[];
-  nbMembers: number;
-  location: string;
-}
-
-export type Rule = {
-  condition: string | undefined;
-  rules: Rule[];
-  id: string;
-  value: string;
-  operator: string;
-};
-
-export interface Spec {
-  isSatisfied: (challenge: Challenge) => Promise<boolean>;
-}
+import * as E from 'fp-ts/Either';
+import * as IOE from 'fp-ts/IOEither';
+import { pipe, unsafeCoerce } from 'fp-ts/function';
+import * as RTE from 'fp-ts/ReaderTaskEither';
+import * as TE from 'fp-ts/TaskEither';
+import { foldMap } from 'fp-ts/Array';
+import { Challenge, DeclineReason, LiChessChallenge, Rule, RuleType, RuleValueType, Spec, SpecResult, Team } from '@/challenge/types';
 
 export const extractNumEncounters = (html: string): number => {
   const div = document.createElement('div');
@@ -76,191 +19,243 @@ export const extractNumEncounters = (html: string): number => {
   return sumArray(scores);
 };
 
-const compareTeamsFactory = (http: AxiosInstance) => (teams: string, operator: Relation) => async (challenge: Challenge) => {
-  const response = await http.get<Team[]>(`/api/team/of/${challenge.username}`);
+const compareTeams = (teams: RuleValueType, operator: Relation) => (teamItems: Team[]) => teamItems.some(team => compare(operator)(teams)(team.id));
 
-  return response.data.some(team => compare(operator)(teams)(team.id));
-};
-
-export const teamSpecFactory = (http: AxiosInstance) => (teams: string, operator: Relation): Spec => ({
-  isSatisfied: compareTeamsFactory(http)(teams, operator),
-});
-
-export const encounterSpecFactory = (http: AxiosInstance) => (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
-    const response = await http.get(`/@/${challenge.username}/mini`);
-    const encounters = extractNumEncounters(response.data);
-
-    return compare(operator)(value)(encounters);
-  },
-});
-
-export const ratingSpec = (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
-    return compare(operator)(value)(challenge.challenger.rating);
-  },
-});
-
-export const ratedSpec = (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
-    return compare(operator)(!!value)(challenge.rated);
-  },
-});
-
-export const variantSpec = (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
-    return compare(operator)(value)(challenge.variant.key);
-  },
-});
-
-export const userIdSpec = (value: string, operator: Relation): Spec => ({
-  isSatisfied: async challenge => {
-    return compare(operator)(value)(challenge.challenger.id);
-  },
-});
-
-export const getChallengeElement = (container: HTMLElement): HTMLDivElement => {
-  return container.getElementsByClassName('challenges')[0] as HTMLDivElement;
-};
-
-const getChallengeInfo = (http: AxiosInstance) => async () => {
-  const response = await http.get<{ in: LiChessChallenge[] }>('/challenge', { headers: { accept: 'application/vnd.lichess.v5+json', 'x-requested-with': 'XMLHttpRequest' } });
-
-  return Object.fromEntries(response.data.in.map(v => [v.id, v]));
-};
-
-export interface ChallengeRetriever {
-  (challengeContainerElement: HTMLElement): Promise<Challenge[]>;
-}
-
-export const getChallengeInfosFactory = (http: AxiosInstance): ChallengeRetriever => async (challengeContainerElement: HTMLElement): Promise<Challenge[]> => {
-  const remoteChallengeInfo = await getChallengeInfo(http)();
-
-  return Array.from(challengeContainerElement.getElementsByClassName('challenge')).reduce((acc: Challenge[], v) => {
-    const userLink = v.getElementsByClassName('user-link')[0].attributes.getNamedItem('href')?.value;
-
-    if (!userLink) {
-      return acc;
-    }
-
-    const userLinkParts = userLink?.split('/');
-    const username = userLinkParts[userLinkParts.length - 1];
-    const form = v.getElementsByTagName('form')[0];
-    const action = form.attributes.getNamedItem('action')?.value;
-    const id = action?.split('/')[2];
-
-    if (!id) {
-      return acc;
-    }
-
-    const acceptButton = v.getElementsByClassName('accept')[0] as HTMLButtonElement;
-    const declineButton = v.getElementsByClassName('decline')[0] as HTMLButtonElement;
-
-    const accept = () => {
-      acceptButton.click();
-    };
-
-    const decline = () => {
-      declineButton.click();
-    };
-    const newChallenge: Challenge = {
-      userLink,
-      username,
-      accept,
-      decline,
-      ...remoteChallengeInfo[id],
-    };
-    acc.push(newChallenge);
-
-    return acc;
-  }, []);
-};
-
-export interface ChallengeProcessor {
-  (collection: Challenge[], results: Challenge[]): Promise<Challenge[]>;
-}
-
-const createChallengeProcessor = (
-  matcher: (challenge: Challenge) => Promise<boolean>,
-  followup: (result: boolean, current: Challenge, matched: Challenge[]) => Promise<boolean>,
-  splitter: Splitter
-): ChallengeProcessor => {
-  const rec = async (collection: Challenge[], results: Challenge[] = []): Promise<Challenge[]> => {
-    const { current, other } = splitter(collection);
-    if (!current) {
-      return results;
-    }
-
-    const result = await matcher(current);
-
-    const matched = result ? results.concat([current]) : results;
-    const shouldContinue = await followup(result, current, matched);
-
-    if (!shouldContinue) {
-      return matched;
-    }
-
-    return rec(other, matched);
-  };
-
-  return rec;
-};
-
-export const declineUnmatchingFactory = (spec: Spec): ChallengeProcessor =>
-  createChallengeProcessor(
-    async challenge => {
-      const result = await spec.isSatisfied(challenge);
-
-      return !result;
-    },
-    async () => true,
-    headTail
+const getTeamsOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither<AxiosInstance, Error, Team[]> => http =>
+  pipe(
+    TE.tryCatch(() => http.get<Team[]>(`/api/team/of/${challenge.username}`), unknownError),
+    TE.map(v => v.data)
   );
 
-export const processChallengesFactory = (spec: Spec): ChallengeProcessor =>
-  createChallengeProcessor(
-    challenge => spec.isSatisfied(challenge),
-    async (result, current) => {
-      if (!result) {
-        current.decline();
-        return true;
-      }
-
-      return false;
-    },
-    splitRandomElement
+const getNumEncountersOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither<AxiosInstance, Error, number> => http =>
+  pipe(
+    TE.tryCatch(() => http.get<string>(`/@/${challenge.username}/mini`), unknownError),
+    TE.map(v => v.data),
+    TE.map(extractNumEncounters)
   );
 
-export interface RuleConverter {
-  (rule: Rule): Spec;
-}
+type DeclinedHandler = () => { silent: boolean; reason: DeclineReason };
+const defaultDeclineHandler = () => ({ silent: false, reason: DeclineReason.RULE_FAILED });
 
-export const convertRuleFactory = (specFactory: SpecFactory): RuleConverter => {
-  const rec = (rule: Rule): Spec => {
-    if (typeof rule.condition !== 'undefined') {
-      const operator = rule.condition;
-      return rule.rules.reduce((currentSpec, currentRule) => {
-        return applyCondition(operator, currentSpec, rec(currentRule));
-      }, anySpec);
-    }
+export const teamReaderSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec => (challenge: Challenge) =>
+  pipe(challenge, getTeamsOfChallenge, RTE.map(compareTeams(value, operator)), RTE.map(getSpecResult(declineHandler)));
 
-    switch (rule.id) {
-      case 'team-name':
-        return specFactory.teamSpec(rule.value, mapOperator(rule.operator));
-      case 'encounters':
-        return specFactory.encounterSpec(rule.value, mapOperator(rule.operator));
-      case 'rating':
-        return specFactory.ratingSpec(rule.value, mapOperator(rule.operator));
-      case 'rated':
-        return specFactory.ratedSpec(rule.value, mapOperator(rule.operator));
-      case 'variant':
-        return specFactory.variantSpec(rule.value, mapOperator(rule.operator));
-      case 'user-id':
-        return specFactory.userIdSpec(rule.value, mapOperator(rule.operator));
-    }
+export const encounterSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec => challenge =>
+  pipe(challenge, getNumEncountersOfChallenge, RTE.map(compare(operator)(value)), RTE.map(getSpecResult(declineHandler)));
 
-    return noneSpec;
+export const simpleSpec = (mapperFn: (challenge: Challenge) => RuleValueType) => (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec => (
+  challenge: Challenge
+) => pipe(challenge, mapperFn, compare(operator)(value), getSpecResult(declineHandler), ofSpecReader);
+
+export const ratingReaderSpec = simpleSpec(challenge => challenge.challenger.rating);
+export const ratedReaderSpec = simpleSpec(challenge => challenge.rated);
+export const variantReaderSpec = simpleSpec(challenge => challenge.variant.key);
+export const userIdReaderSpec = simpleSpec(challenge => challenge.challenger.id);
+
+const getSpecResult = (declineHandler: DeclinedHandler) => (result: boolean): SpecResult => {
+  if (result) {
+    return {
+      isSatisfied: true,
+    };
+  }
+
+  return {
+    isSatisfied: false,
+    ...declineHandler(),
+  };
+};
+
+export const getChallengeElement = (container: HTMLElement): IOE.IOEither<Error, HTMLDivElement> => () => {
+  return pipe(
+    container.getElementsByClassName('challenges').item(0),
+    E.fromNullable(Error('Element not found')),
+    E.map(v => unsafeCoerce<Element, HTMLDivElement>(v))
+  );
+};
+
+const getChallengeInfoReader: RTE.ReaderTaskEither<AxiosInstance, Error, { [k: string]: LiChessChallenge }> = http =>
+  pipe(
+    TE.tryCatch(
+      () => http.get<{ in: LiChessChallenge[] }>('/challenge', { headers: { accept: 'application/vnd.lichess.v5+json', 'x-requested-with': 'XMLHttpRequest' } }),
+      unknownError
+    ),
+    TE.map(v => Object.fromEntries(v.data.in.map(v => [v.id, v])))
+  );
+
+export const getChallengeInfosReader = (challengeContainerElement: HTMLElement): RTE.ReaderTaskEither<AxiosInstance, Error, Challenge[]> =>
+  pipe(
+    getChallengeInfoReader,
+    RTE.map(remoteChallenges => {
+      return Array.from(challengeContainerElement.getElementsByClassName('challenge')).reduce((acc: Challenge[], v) => {
+        const userLink = v.getElementsByClassName('user-link')[0].attributes.getNamedItem('href')?.value;
+
+        if (!userLink) {
+          return acc;
+        }
+
+        const userLinkParts = userLink?.split('/');
+        const username = userLinkParts[userLinkParts.length - 1];
+        const form = v.getElementsByTagName('form')[0];
+        const action = form.attributes.getNamedItem('action')?.value;
+        const id = action?.split('/')[2];
+
+        if (!id) {
+          return acc;
+        }
+
+        const acceptButton = v.getElementsByClassName('accept')[0] as HTMLButtonElement;
+        const declineButton = v.getElementsByClassName('decline')[0] as HTMLButtonElement;
+        const declineReasonSelect = v.getElementsByClassName('decline-reason')[0] as HTMLSelectElement;
+
+        const accept = () => {
+          acceptButton.click();
+        };
+
+        const decline = (reason: DeclineReason) => () => {
+          if (reason === DeclineReason.RULE_FAILED) {
+            declineButton.click();
+            return;
+          }
+
+          declineReasonSelect.value = reason;
+          const event = new Event('change');
+          declineReasonSelect.dispatchEvent(event);
+        };
+        const newChallenge: Challenge = {
+          userLink,
+          username,
+          accept,
+          decline,
+          ...remoteChallenges[id],
+        };
+        acc.push(newChallenge);
+
+        return acc;
+      }, []);
+    })
+  );
+
+const getRuleTypeFromName = (ruleName: string): RuleType => {
+  switch (ruleName) {
+    case RuleType.TEAM_NAME:
+      return RuleType.TEAM_NAME;
+    case RuleType.ENCOUNTERS:
+      return RuleType.ENCOUNTERS;
+    case RuleType.RATING:
+      return RuleType.RATING;
+    case RuleType.RATED:
+      return RuleType.RATED;
+    case RuleType.VARIANT:
+      return RuleType.VARIANT;
+    case RuleType.USER_ID:
+      return RuleType.USER_ID;
+    default:
+      return RuleType.TEAM_NAME;
+  }
+};
+
+const mapRuleName = (ruleType: RuleType) => {
+  switch (ruleType) {
+    case RuleType.TEAM_NAME:
+      return teamReaderSpec;
+    case RuleType.ENCOUNTERS:
+      return encounterSpec;
+    case RuleType.RATING:
+      return ratingReaderSpec;
+    case RuleType.RATED:
+      return ratedReaderSpec;
+    case RuleType.VARIANT:
+      return variantReaderSpec;
+    case RuleType.USER_ID:
+      return userIdReaderSpec;
+  }
+};
+
+const getDeclineHandler = (value: RuleValueType, ruleType: RuleType, operator: Relation, silent: boolean): DeclinedHandler => () => {
+  const unmappedRuleTypes: RuleType[] = [RuleType.ENCOUNTERS, RuleType.TEAM_NAME, RuleType.USER_ID, RuleType.RATING];
+
+  if (unmappedRuleTypes.includes(ruleType)) {
+    return {
+      silent,
+      reason: DeclineReason.RULE_FAILED,
+    };
+  }
+
+  if (ruleType === RuleType.RATED) {
+    return {
+      silent,
+      reason: value ? DeclineReason.ONLY_RATED : DeclineReason.ONLY_UNRATED,
+    };
+  }
+
+  if (!Array.isArray(value) || value.length === 0) {
+    return {
+      silent,
+      reason: DeclineReason.RULE_FAILED,
+    };
+  }
+
+  if (value.length !== 1) {
+    return {
+      silent,
+      reason: DeclineReason.NOT_THIS_VARIANT,
+    };
+  }
+
+  if (value[0] === 'standard') {
+    return {
+      silent,
+      reason: DeclineReason.NO_VARIANTS,
+    };
+  }
+
+  return {
+    silent,
+    reason: DeclineReason.NOT_THIS_VARIANT,
+  };
+};
+
+const mapRuleValue = (ruleType: RuleType, value: RuleValueType): RuleValueType => {
+  if ([RuleType.TEAM_NAME, RuleType.USER_ID, RuleType.VARIANT].includes(ruleType)) {
+    return value;
+  }
+  if ([RuleType.RATED].includes(ruleType)) {
+    return !!value;
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 1 : 0;
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  return parseInt(value);
+};
+
+const mapSimpleRule = (rule: Rule): Spec => {
+  const ruleType = getRuleTypeFromName(rule.id);
+  const ruleConstructor = mapRuleName(ruleType);
+  const operator = mapOperator(rule.operator);
+  const mappedValue = mapRuleValue(ruleType, rule.value);
+  return ruleConstructor(mappedValue, operator, getDeclineHandler(mappedValue, ruleType, operator, rule.silent));
+};
+
+export const convertRuleReader = (rule: Rule): Spec => {
+  const reduceRules = (condition: string, rules: Rule[]): Spec => {
+    const conditionMonoid = getSpecMonoid(condition);
+
+    return foldMap(conditionMonoid)(convertRuleReader)(rules);
   };
 
-  return rec;
+  if (typeof rule.condition !== 'undefined') {
+    return reduceRules(rule.condition, rule.rules);
+  }
+
+  return mapSimpleRule(rule);
 };
