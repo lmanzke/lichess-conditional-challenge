@@ -10,7 +10,6 @@ import { convertRuleReader, getChallengeElement, getChallengeInfosReader } from 
 import { getLichessPrefs } from '@/challenge/storage';
 import { defineComponent, provide } from 'vue';
 import { JpexInstance } from 'jpex';
-import * as TE from 'fp-ts/TaskEither';
 import * as RT from 'fp-ts/ReaderTask';
 import * as RTE from 'fp-ts/ReaderTaskEither';
 import { flow, pipe } from 'fp-ts/function';
@@ -20,8 +19,7 @@ import { ensureNonEmptyArrayReader, fromIOSpecReader, ofSpecReader, safeRandomEl
 import { sequenceArray } from 'fp-ts/ReaderTaskEither';
 import { ChallengeInfo, ReaderTypeOf, AppProps, Spec, Challenge, Rule, SpecResult } from '@/challenge/types';
 
-const tryGetLichessPrefs: TE.TaskEither<Error, Rule> = TE.tryCatch(() => getLichessPrefs(), unknownError);
-const readerTryLichessPrefs: ReaderTypeOf<Rule> = RTE.fromTaskEither(tryGetLichessPrefs);
+const readerTryLichessPrefs: ReaderTypeOf<Rule> = RTE.fromTaskEither(getLichessPrefs);
 
 type SpecProcessorForChallenges = ([spec, challenges]: [Spec, Challenge[]]) => RTE.ReaderTaskEither<AxiosInstance, Error, string>;
 
