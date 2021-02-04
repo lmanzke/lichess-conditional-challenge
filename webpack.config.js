@@ -30,7 +30,7 @@ const config = {
     },
     extensions: ['.ts', '.vue', '.js'],
   },
-  devtool: 'source-map',
+  devtool: process.env.NODE_ENV === 'production' ? false : 'source-map',
   module: {
     rules: [
       {
