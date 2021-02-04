@@ -57,7 +57,7 @@ const config = {
       },
       {
         test: /\.scss$/,
-        use: [MiniCssExtractPlugin.loader, 'css-loader', 'sass-loader'],
+        use: [{ loader: MiniCssExtractPlugin.loader, options: { publicPath: '' } }, 'css-loader', 'sass-loader'],
       },
       {
         test: /\.sass$/,
@@ -86,7 +86,15 @@ const config = {
     ],
   },
   plugins: [
+    new webpack.ProvidePlugin({
+      jQuery: 'jquery',
+      $: 'jquery',
+      jquery: 'jquery',
+    }),
     new webpack.DefinePlugin({
+      jQuery: 'jquery',
+      $: 'jquery',
+      jquery: 'jquery',
       global: 'window',
       __VUE_OPTIONS_API__: true,
       __VUE_PROD_DEVTOOLS__: false,

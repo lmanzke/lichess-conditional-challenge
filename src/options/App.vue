@@ -6,8 +6,8 @@
 
 <script lang="ts">
 import QueryBuilder from '../builder/QueryBuilder';
-import { Rule } from '@/challenge/lichess';
 import { defineComponent } from 'vue';
+import { Rule } from '@/challenge/types';
 
 interface AppData {
   queryBuilderRules?: Rule;
@@ -27,7 +27,7 @@ export default defineComponent({
   computed: {
     queryBuilderOptions(): unknown {
       return {
-        plugins: ['bt-checkbox', 'silent'],
+        plugins: ['bt-checkbox', 'silent', 'bt-selectpicker'],
         filters: [
           {
             id: 'team-name',
@@ -80,6 +80,7 @@ export default defineComponent({
               racingKings: 'Racing Kings',
               threeCheck: 'Three Check',
             },
+            color: 'primary',
             operators: ['in', 'not_in'],
           },
         ],
@@ -99,7 +100,10 @@ export default defineComponent({
             {
               id: 'rating',
               operator: 'greater',
-              value: 0,
+              value: '0',
+              silent: false,
+              rules: [],
+              condition: undefined,
             },
           ],
           valid: true,
@@ -112,24 +116,13 @@ export default defineComponent({
 
 <style lang="scss">
 .options-container {
-  padding: 5px;
-  width: 800px;
+  padding: 20px;
+  min-width: 1200px;
+  min-height: 300px;
+  display: flex;
+}
 
-  .rule-operator-container {
-    color: white;
-  }
-  .rule-value-container {
-    color: white;
-  }
-  .radio,
-  .checkbox {
-    display: inline-block;
-    margin-right: 10px;
-
-    input,
-    label {
-      display: inline-block;
-    }
-  }
+.options-container > div {
+  flex: 1;
 }
 </style>

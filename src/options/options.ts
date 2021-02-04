@@ -1,4 +1,7 @@
+import 'jquery';
+import 'bootstrap/dist/js/bootstrap';
 import './bootstrap.scss';
+import 'bootstrap-select';
 import { createApp } from 'vue';
 import App from './App.vue';
 
