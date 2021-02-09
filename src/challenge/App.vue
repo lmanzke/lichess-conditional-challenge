@@ -1,7 +1,7 @@
 <template>
   <div class="extender">
-    <button class="fbt" @click="acceptMatchingClicked">Accept matching challenge</button>
-    <button class="fbt" @click="declineUnmatchingClicked">Decline all unmatching</button>
+    <button @click="acceptMatchingClicked">Accept matching challenge</button>
+    <button @click="declineUnmatchingClicked">Decline all unmatching</button>
   </div>
 </template>
 
@@ -139,13 +139,26 @@ export default defineComponent({
   },
 });
 </script>
-<style>
+<style lang="scss">
 .extender {
   background-color: #fff;
 }
 
 .extender button {
   width: 100%;
-  padding: 15px 0;
+  padding: 12px 0;
+  margin: 1px 1px 0 1px;
+  text-transform: uppercase;
+  line-height: 1.5;
+  transition: all 150ms;
+  background: none;
+  border: none;
+  outline: none;
+  color: #777777 !important;
+
+  &:hover {
+    background: #89b25b;
+    color: #fff !important;
+  }
 }
 </style>
