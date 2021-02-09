@@ -4,7 +4,7 @@ import { getSpecMonoid } from './spec';
 import { AxiosInstance } from 'axios';
 import * as E from 'fp-ts/Either';
 import * as IOE from 'fp-ts/IOEither';
-import { pipe, unsafeCoerce } from 'fp-ts/function';
+import { flow, pipe, unsafeCoerce } from 'fp-ts/function';
 import * as RTE from 'fp-ts/ReaderTaskEither';
 import * as TE from 'fp-ts/TaskEither';
 import { foldMap } from 'fp-ts/Array';
@@ -37,15 +37,14 @@ const getNumEncountersOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither
 type DeclinedHandler = () => { silent: boolean; reason: DeclineReason };
 const defaultDeclineHandler = () => ({ silent: false, reason: DeclineReason.RULE_FAILED });
 
-export const teamReaderSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec => (challenge: Challenge) =>
-  pipe(challenge, getTeamsOfChallenge, RTE.map(compareTeams(value, operator)), RTE.map(getSpecResult(declineHandler)));
+export const teamReaderSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec =>
+  flow(getTeamsOfChallenge, RTE.map(compareTeams(value, operator)), RTE.map(getSpecResult(declineHandler)));
 
-export const encounterSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec => challenge =>
-  pipe(challenge, getNumEncountersOfChallenge, RTE.map(compare(operator)(value)), RTE.map(getSpecResult(declineHandler)));
+export const encounterSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec =>
+  flow(getNumEncountersOfChallenge, RTE.map(compare(operator)(value)), RTE.map(getSpecResult(declineHandler)));
 
-export const simpleSpec = (mapperFn: (challenge: Challenge) => RuleValueType) => (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec => (
-  challenge: Challenge
-) => pipe(challenge, mapperFn, compare(operator)(value), getSpecResult(declineHandler), ofSpecReader);
+export const simpleSpec = (mapperFn: (challenge: Challenge) => RuleValueType) => (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec =>
+  flow(mapperFn, compare(operator)(value), getSpecResult(declineHandler), ofSpecReader);
 
 export const ratingReaderSpec = simpleSpec(challenge => challenge.challenger.rating);
 export const ratedReaderSpec = simpleSpec(challenge => challenge.rated);

@@ -7,7 +7,7 @@ import * as IOE from 'fp-ts/IOEither';
 import * as E from 'fp-ts/Either';
 import * as IO from 'fp-ts/IO';
 import { JpexInstance } from 'jpex';
-import { pipe } from 'fp-ts/function';
+import { flow, pipe } from 'fp-ts/function';
 import { Store } from 'vuex';
 import { ReaderTaskEither } from 'fp-ts/ReaderTaskEither';
 import { wait3 } from '@/util/tagless';
@@ -34,16 +34,19 @@ const getContainer = (document: Document) => E.fromNullable('no container')(docu
 const getButton = (document: Document) => E.fromNullable('no button')(document.getElementById(CHALLENGE_MENU_TOGGLE_ID) as HTMLButtonElement);
 const getDocument: IOE.IOEither<string, Document> = () => E.fromNullable('no document')(document);
 
-const isContainerLoaded = (document: Document) =>
-  pipe(
-    getContainer(document),
-    E.chain(container => E.fromNullable('no class')(container.className)),
-    E.map(className => className.indexOf('rendered')),
-    E.fold(
-      () => false,
-      index => index > -1
-    )
-  );
+const guardContainerLoaded = flow(
+  getContainer,
+  E.bindTo('container'),
+  E.bind('className', ({ container }) => E.fromNullable('no class')(container.className)),
+  E.bind('renderedIndex', ({ className }) => E.of(className.indexOf('rendered'))),
+  E.chain(({ renderedIndex, container }) => {
+    if (renderedIndex > -1) {
+      return E.right(container);
+    }
+
+    return E.left('no container');
+  })
+);
 
 const executeAfter = wait3(RTE.readerTaskEither);
 
@@ -60,13 +63,7 @@ const mountContainer = (element: HTMLElement): ReaderTaskEither<JpexInstance, st
     )
   );
 
-const mountWhenLoaded = (document: Document) => {
-  if (!isContainerLoaded(document)) {
-    return RTE.left('container not loaded');
-  }
-
-  return pipe(document, getContainer, RTE.fromEither, RTE.chain(mountContainer));
-};
+const mountWhenLoaded = flow(guardContainerLoaded, RTE.fromEither, RTE.chain(mountContainer));
 
 const toggleAndLoadDocument = (document: Document) =>
   pipe(

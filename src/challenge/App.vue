@@ -28,6 +28,7 @@ import {
   challengeInfoIsUnsatisfied,
   specResultIsSatisfied,
   SatisfyingChallengeInfo,
+  UnsatisfyingChallengeInfo,
 } from '@/challenge/types';
 import { filter } from 'fp-ts/Array';
 
@@ -71,35 +72,36 @@ const tryGetSpecReader = pipe(
   readerTryLichessPrefs,
   RTE.chain(rule => RTE.of(convertRuleReader(rule)))
 );
-const tryGetSpecWithChallenges = (element: HTMLElement) =>
-  pipe(
-    element,
-    getChallengeElement,
-    RTE.fromIOEither,
-    RTE.chain(element => sequenceReaderTaskEither(tryGetSpecReader, getChallengeInfosReader(element)))
-  );
+const tryGetSpecWithChallenges = flow(
+  getChallengeElement,
+  RTE.fromIOEither,
+  RTE.chain(element => sequenceReaderTaskEither(tryGetSpecReader, getChallengeInfosReader(element)))
+);
 const acceptFirstMatchingChallengeProcessor: SpecProcessorForChallenges = ([spec, challenges]) => pipe(matchFirstRandom(spec, challenges), RTE.chain(acceptChallengeInfo));
+
+const executeSpec = (spec: Spec) => (challenge: Challenge): ReaderTypeOf<ChallengeInfo> => {
+  return pipe(
+    challenge,
+    spec,
+    RTE.map<SpecResult, ChallengeInfo>(result => ({ ...result, challenge }))
+  );
+};
+const declineUnsatisfiedChallenges = (unsatisfiedChallenges: UnsatisfyingChallengeInfo[]): ReaderTypeOf<string> =>
+  RTE.fromIO(() => {
+    const unsilentChallenges = unsatisfiedChallenges.filter(unsatisfiedChallenge => !unsatisfiedChallenge.silent);
+    unsilentChallenges.forEach(unsilentChallenge => {
+      unsilentChallenge.challenge.decline(unsilentChallenge.reason)();
+    });
+
+    return 'Declined ' + unsilentChallenges.length + ' challenges';
+  });
+
 const declineAllUnmatchingProcessor: SpecProcessorForChallenges = ([spec, challenges]) =>
   pipe(
-    challenges.map(challenge =>
-      pipe(
-        challenge,
-        spec,
-        RTE.map<SpecResult, ChallengeInfo>(result => ({ ...result, challenge }))
-      )
-    ),
+    challenges.map(executeSpec(spec)),
     sequenceArray,
     RTE.map(v => filter(challengeInfoIsUnsatisfied)(v as ChallengeInfo[])),
-    RTE.chain(unsatisfiedChallenges =>
-      RTE.fromIO(() => {
-        const unsilentChallenges = unsatisfiedChallenges.filter(unsatisfiedChallenge => !unsatisfiedChallenge.silent);
-        unsilentChallenges.forEach(unsilentChallenge => {
-          unsilentChallenge.challenge.decline(unsilentChallenge.reason)();
-        });
-
-        return 'Declined ' + unsilentChallenges.length + ' challenges';
-      })
-    )
+    RTE.chain(declineUnsatisfiedChallenges)
   );
 
 const acceptFirstMatchingForElement = flow(tryGetSpecWithChallenges, RTE.chain(acceptFirstMatchingChallengeProcessor));
