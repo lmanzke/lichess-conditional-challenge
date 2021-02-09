@@ -3,11 +3,25 @@ import * as RTE from 'fp-ts/ReaderTaskEither';
 import * as IO from 'fp-ts/IO';
 import { AxiosInstance } from 'axios';
 import { Refinement } from 'fp-ts/function';
+import { Relation } from '@/challenge/operators';
 
 export interface AppProps {
   container: HTMLElement;
   dependencies: JpexInstance;
 }
+
+export type UnmappedDeclineReason = {
+  isMapped: false;
+};
+
+export type UserIsBlacklisted = { reason: 'USER_IS_BLACKLISTED' } & UnmappedDeclineReason;
+
+export type EnumeratedDeclineReason = UserIsBlacklisted;
+
+export type MappedDeclineReason = {
+  isMapped: true;
+  mappedReason: string;
+};
 
 export enum DeclineReason {
   RULE_FAILED = 'ruleFailed',
@@ -33,8 +47,16 @@ export enum RuleType {
   USER_ID = 'user-id',
 }
 
-export type SatisfyingChallengeInfo = { challenge: Challenge; isSatisfied: true };
-export type UnsatisfyingChallengeInfo = { challenge: Challenge; isSatisfied: false; silent: boolean; reason: DeclineReason };
+export type SatisfiedSpecResult = { isSatisfied: true };
+export type UnsatisfiedSpecResult = { isSatisfied: false; silent: boolean; targetValue: RuleValueType; fieldName: string; operator: Relation };
+
+export type SpecResult = SatisfiedSpecResult | UnsatisfiedSpecResult;
+
+export const specResultIsSatisfied: Refinement<SpecResult, SatisfiedSpecResult> = (a: SpecResult): a is SatisfiedSpecResult => a.isSatisfied;
+export const specResultIsUnsatisfied: Refinement<SpecResult, UnsatisfiedSpecResult> = (a: SpecResult): a is UnsatisfiedSpecResult => !a.isSatisfied;
+
+export type SatisfyingChallengeInfo = SatisfiedSpecResult & { challenge: Challenge };
+export type UnsatisfyingChallengeInfo = UnsatisfiedSpecResult & { challenge: Challenge };
 
 export type ChallengeInfo = SatisfyingChallengeInfo | UnsatisfyingChallengeInfo;
 
@@ -42,7 +64,7 @@ export const challengeInfoIsSatisfied: Refinement<ChallengeInfo, SatisfyingChall
 export const challengeInfoIsUnsatisfied: Refinement<ChallengeInfo, UnsatisfyingChallengeInfo> = (a: SpecResult): a is UnsatisfyingChallengeInfo => !a.isSatisfied;
 
 export type ReaderTypeOf<T> = RTE.ReaderTaskEither<AxiosInstance, Error, T>;
-export type Spec = (challenge: Challenge) => RTE.ReaderTaskEither<AxiosInstance, Error, SpecResult>;
+export type Spec = (challenge: Challenge) => ReaderTypeOf<SpecResult>;
 
 export interface Challenger {
   rating: number;
@@ -104,11 +126,3 @@ export type Rule = {
   operator: string;
   silent: boolean;
 };
-
-export type SatisfiedSpecResult = { isSatisfied: true };
-export type UnsatisfiedSpecResult = { isSatisfied: false; silent: boolean; reason: DeclineReason };
-
-export type SpecResult = SatisfiedSpecResult | UnsatisfiedSpecResult;
-
-export const specResultIsSatisfied: Refinement<SpecResult, SatisfiedSpecResult> = (a: SpecResult): a is SatisfiedSpecResult => a.isSatisfied;
-export const specResultIsUnsatisfied: Refinement<SpecResult, UnsatisfiedSpecResult> = (a: SpecResult): a is UnsatisfiedSpecResult => !a.isSatisfied;

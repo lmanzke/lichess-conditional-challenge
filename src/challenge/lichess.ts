@@ -3,11 +3,12 @@ import { compare, mapOperator, Relation } from './operators';
 import { getSpecMonoid } from './spec';
 import { AxiosInstance } from 'axios';
 import * as E from 'fp-ts/Either';
+import * as O from 'fp-ts/Option';
 import * as IOE from 'fp-ts/IOEither';
 import { flow, pipe, unsafeCoerce } from 'fp-ts/function';
 import * as RTE from 'fp-ts/ReaderTaskEither';
 import * as TE from 'fp-ts/TaskEither';
-import { foldMap } from 'fp-ts/Array';
+import { findFirst, foldMap } from 'fp-ts/Array';
 import { Challenge, DeclineReason, LiChessChallenge, Rule, RuleType, RuleValueType, Spec, SpecResult, Team } from '@/challenge/types';
 
 export const extractNumEncounters = (html: string): number => {
@@ -34,24 +35,50 @@ const getNumEncountersOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither
     TE.map(extractNumEncounters)
   );
 
-type DeclinedHandler = () => { silent: boolean; reason: DeclineReason };
-const defaultDeclineHandler = () => ({ silent: false, reason: DeclineReason.RULE_FAILED });
+export const teamReaderSpec = (value: RuleValueType, operator: Relation, silent = false): Spec => (challenge: Challenge) =>
+  pipe(challenge, getTeamsOfChallenge, RTE.map(compareTeams(value, operator)), RTE.map(getSpecResult2('teamId', operator, value, silent)));
 
-export const teamReaderSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec =>
-  flow(getTeamsOfChallenge, RTE.map(compareTeams(value, operator)), RTE.map(getSpecResult(declineHandler)));
+export const encounterSpec = (value: RuleValueType, operator: Relation, silent = false): Spec => challenge =>
+  pipe(challenge, getNumEncountersOfChallenge, RTE.map(compare(operator)(value)), RTE.map(getSpecResult2('numEncounters', operator, value, silent)));
 
-export const encounterSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec =>
-  flow(getNumEncountersOfChallenge, RTE.map(compare(operator)(value)), RTE.map(getSpecResult(declineHandler)));
+export type SimpleSpec = (value: RuleValueType, operator: Relation, silent?: boolean) => (challenge: Challenge) => SpecResult;
+export const simpleSpec = (fieldName: string, mapperFn: (challenge: Challenge) => RuleValueType): SimpleSpec => (value: RuleValueType, operator: Relation, silent = false) => (
+  challenge: Challenge
+) => pipe(challenge, mapperFn, compare(operator)(value), getSpecResult2(fieldName, operator, value, silent));
+const toReaderSpec = (spec: SimpleSpec) => (value: RuleValueType, operator: Relation, silent = false): Spec => flow(spec(value, operator, silent), ofSpecReader);
 
-export const simpleSpec = (mapperFn: (challenge: Challenge) => RuleValueType) => (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec =>
-  flow(mapperFn, compare(operator)(value), getSpecResult(declineHandler), ofSpecReader);
+export const ratingSpec: SimpleSpec = simpleSpec('rating', challenge => challenge.challenger.rating);
+export const ratingReaderSpec = toReaderSpec(ratingSpec);
 
-export const ratingReaderSpec = simpleSpec(challenge => challenge.challenger.rating);
-export const ratedReaderSpec = simpleSpec(challenge => challenge.rated);
-export const variantReaderSpec = simpleSpec(challenge => challenge.variant.key);
-export const userIdReaderSpec = simpleSpec(challenge => challenge.challenger.id);
+export const ratedSpec = simpleSpec('rated', challenge => challenge.rated);
+export const ratedReaderSpec = toReaderSpec(ratedSpec);
 
-const getSpecResult = (declineHandler: DeclinedHandler) => (result: boolean): SpecResult => {
+export const variantSpec = simpleSpec('variant', challenge => challenge.variant.key);
+export const variantReaderSpec = toReaderSpec(variantSpec);
+
+export const userIdSpec = simpleSpec('userId', challenge => challenge.challenger.id);
+export const userIdReaderSpec = toReaderSpec(userIdSpec);
+
+const getOppositeOperator = (operator: Relation): Relation => {
+  const pairs: Array<[Relation, Relation]> = [
+    [Relation.IN, Relation.NOT_IN],
+    [Relation.EQUAL, Relation.NOT_EQUAL],
+    [Relation.GREATER_THAN, Relation.LESS_THAN_EQUAL],
+    [Relation.LESS_THAN, Relation.GREATER_THAN_EQUAL],
+    [Relation.BETWEEN, Relation.NOT_BETWEEN],
+  ];
+
+  return pipe(
+    pairs,
+    findFirst(([a, b]) => a === operator || b === operator),
+    O.fold(
+      () => Relation.NOT_EQUAL,
+      ([a, b]) => (a === operator ? b : a)
+    )
+  );
+};
+
+const getSpecResult2 = (fieldName: string, relation: Relation, targetValue: RuleValueType, silent: boolean) => (result: boolean): SpecResult => {
   if (result) {
     return {
       isSatisfied: true,
@@ -60,14 +87,17 @@ const getSpecResult = (declineHandler: DeclinedHandler) => (result: boolean): Sp
 
   return {
     isSatisfied: false,
-    ...declineHandler(),
+    silent,
+    targetValue,
+    fieldName,
+    operator: getOppositeOperator(relation),
   };
 };
 
 export const getChallengeElement = (container: HTMLElement): IOE.IOEither<Error, HTMLDivElement> => () => {
   return pipe(
     container.getElementsByClassName('challenges').item(0),
-    E.fromNullable(Error('Element not found')),
+    E.fromNullable(Error('No pending challenges')),
     E.map(v => unsafeCoerce<Element, HTMLDivElement>(v))
   );
 };
@@ -170,50 +200,6 @@ const mapRuleName = (ruleType: RuleType) => {
   }
 };
 
-const getDeclineHandler = (value: RuleValueType, ruleType: RuleType, operator: Relation, silent: boolean): DeclinedHandler => () => {
-  const unmappedRuleTypes: RuleType[] = [RuleType.ENCOUNTERS, RuleType.TEAM_NAME, RuleType.USER_ID, RuleType.RATING];
-
-  if (unmappedRuleTypes.includes(ruleType)) {
-    return {
-      silent,
-      reason: DeclineReason.RULE_FAILED,
-    };
-  }
-
-  if (ruleType === RuleType.RATED) {
-    return {
-      silent,
-      reason: value ? DeclineReason.ONLY_RATED : DeclineReason.ONLY_UNRATED,
-    };
-  }
-
-  if (!Array.isArray(value) || value.length === 0) {
-    return {
-      silent,
-      reason: DeclineReason.RULE_FAILED,
-    };
-  }
-
-  if (value.length !== 1) {
-    return {
-      silent,
-      reason: DeclineReason.NOT_THIS_VARIANT,
-    };
-  }
-
-  if (value[0] === 'standard') {
-    return {
-      silent,
-      reason: DeclineReason.NO_VARIANTS,
-    };
-  }
-
-  return {
-    silent,
-    reason: DeclineReason.NOT_THIS_VARIANT,
-  };
-};
-
 const mapRuleValue = (ruleType: RuleType, value: RuleValueType): RuleValueType => {
   if ([RuleType.TEAM_NAME, RuleType.USER_ID, RuleType.VARIANT].includes(ruleType)) {
     return value;
@@ -242,7 +228,7 @@ const mapSimpleRule = (rule: Rule): Spec => {
   const ruleConstructor = mapRuleName(ruleType);
   const operator = mapOperator(rule.operator);
   const mappedValue = mapRuleValue(ruleType, rule.value);
-  return ruleConstructor(mappedValue, operator, getDeclineHandler(mappedValue, ruleType, operator, rule.silent));
+  return ruleConstructor(mappedValue, operator, rule.silent);
 };
 
 export const convertRuleReader = (rule: Rule): Spec => {

@@ -6,37 +6,45 @@
 </template>
 
 <script lang="ts">
-import { convertRuleReader, getChallengeElement, getChallengeInfosReader } from '@/challenge/lichess';
-import { getLichessPrefs } from '@/challenge/storage';
-import { defineComponent, provide } from 'vue';
-import { JpexInstance } from 'jpex';
+import {convertRuleReader, getChallengeElement, getChallengeInfosReader} from '@/challenge/lichess';
+import {getLichessPrefs} from '@/challenge/storage';
+import {defineComponent, provide} from 'vue';
+import {JpexInstance} from 'jpex';
 import * as RT from 'fp-ts/ReaderTask';
 import * as RTE from 'fp-ts/ReaderTaskEither';
-import { Endomorphism, flow, pipe } from 'fp-ts/function';
-import { NonEmptyArray } from 'fp-ts/NonEmptyArray';
-import { AxiosInstance } from 'axios';
-import { ensureNonEmptyArrayReader, fromIOSpecReader, ofSpecReader, safeRandomElement, sequenceReaderTaskEither, tap3 } from '@/challenge/utils';
-import { sequenceArray } from 'fp-ts/ReaderTaskEither';
+import {sequenceArray} from 'fp-ts/ReaderTaskEither';
+import {Endomorphism, flow, pipe} from 'fp-ts/function';
+import {NonEmptyArray} from 'fp-ts/NonEmptyArray';
+import {AxiosInstance} from 'axios';
 import {
-  ChallengeInfo,
-  ReaderTypeOf,
+  ensureNonEmptyArrayReader,
+  fromIOSpecReader,
+  ofSpecReader,
+  safeRandomElement,
+  sequenceReaderTaskEither,
+  tap3
+} from '@/challenge/utils';
+import {
   AppProps,
-  Spec,
   Challenge,
-  Rule,
-  SpecResult,
+  ChallengeInfo,
   challengeInfoIsUnsatisfied,
-  specResultIsSatisfied,
+  DeclineReason,
+  ReaderTypeOf,
+  Rule,
   SatisfyingChallengeInfo,
+  Spec,
+  SpecResult,
+  specResultIsSatisfied,
   UnsatisfyingChallengeInfo,
 } from '@/challenge/types';
-import { filter } from 'fp-ts/Array';
+import {filter} from 'fp-ts/Array';
 
 const tapRTE = tap3(RTE.readerTaskEither);
 const _logValue: Endomorphism<ReaderTypeOf<unknown>> = tapRTE(console.log);
 const readerTryLichessPrefs: ReaderTypeOf<Rule> = pipe(getLichessPrefs, RTE.fromTaskEither);
 
-type SpecProcessorForChallenges = ([spec, challenges]: [Spec, Challenge[]]) => RTE.ReaderTaskEither<AxiosInstance, Error, string>;
+type SpecProcessorForChallenges = ([spec, challenges]: [Spec, Challenge[]]) => RTE.ReaderTaskEither<AxiosInstance, Error, string[]>;
 
 const matchFirstRandom = (spec: Spec, challenges: Challenge[]) => pipe(challenges, ensureNonEmptyArrayReader, RTE.chain(getFirstRandomChallenge(spec)));
 
@@ -60,6 +68,10 @@ const getFirstRandomChallenge = (spec: Spec) => (challenges: NonEmptyArray<Chall
       );
     })
   );
+};
+
+const declinedToString = (challengeInfo: UnsatisfyingChallengeInfo): string => {
+  return ' a rule failed.';
 };
 
 const acceptChallengeInfo = (challengeInfo: ChallengeInfo): ReaderTypeOf<string> =>
@@ -86,15 +98,25 @@ const executeSpec = (spec: Spec) => (challenge: Challenge): ReaderTypeOf<Challen
     RTE.map<SpecResult, ChallengeInfo>(result => ({ ...result, challenge }))
   );
 };
-const declineUnsatisfiedChallenges = (unsatisfiedChallenges: UnsatisfyingChallengeInfo[]): ReaderTypeOf<string> =>
-  RTE.fromIO(() => {
-    const unsilentChallenges = unsatisfiedChallenges.filter(unsatisfiedChallenge => !unsatisfiedChallenge.silent);
-    unsilentChallenges.forEach(unsilentChallenge => {
-      unsilentChallenge.challenge.decline(unsilentChallenge.reason)();
-    });
+const declineUnsatisfiedChallenges = (unsatisfiedChallenges: UnsatisfyingChallengeInfo[]): ReaderTypeOf<string[]> =>
+  pipe(
+    fromIOSpecReader(() => {
+      const unsilentChallenges = unsatisfiedChallenges.filter(unsatisfiedChallenge => !unsatisfiedChallenge.silent);
+      unsilentChallenges.forEach(unsilentChallenge => {
+        unsilentChallenge.challenge.decline(DeclineReason.RULE_FAILED)();
+      });
 
-    return 'Declined ' + unsilentChallenges.length + ' challenges';
-  });
+      return unsilentChallenges;
+    }),
+    RTE.map(unsilentChallenges =>
+      unsilentChallenges.map(unsilentChallenge => {
+        const reasonString = declinedToString(unsilentChallenge);
+
+        return `Declined ${unsilentChallenge.challenge.id}(${unsilentChallenge.challenge.username}) because ${reasonString}`;
+      })
+    ),
+    RTE.chainFirst(challengeInfos => RTE.fromIO(() => challengeInfos.forEach(console.log)))
+  );
 
 const declineAllUnmatchingProcessor: SpecProcessorForChallenges = ([spec, challenges]) =>
   pipe(

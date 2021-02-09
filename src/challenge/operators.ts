@@ -14,6 +14,7 @@ export enum Relation {
   NOT_IN = 'NIN',
   IN = 'IN',
   BETWEEN = 'BETW',
+  NOT_BETWEEN = 'NBETW',
 }
 
 export const mapOperator = (operator: string): Relation => {
