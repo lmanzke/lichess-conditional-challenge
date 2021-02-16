@@ -24,9 +24,6 @@ const addPlugin = QueryBuilder => {
         event.value.silent = !!rule.silent;
       });
       this.on('jsonToRule.queryBuilder.filter', function(event, json) {
-        if (event.value.constructor.name !== 'Rule') {
-          return;
-        }
         if (event && event.value) {
           event.value.silent = !!json.silent;
         }
