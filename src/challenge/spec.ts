@@ -1,5 +1,3 @@
-import * as RTE from 'fp-ts/ReaderTaskEither';
-import * as TE from 'fp-ts/TaskEither';
 import * as SRTE from 'fp-ts/StateReaderTaskEither';
 import { Semigroup } from 'fp-ts/Semigroup';
 import { pipe } from 'fp-ts/function';

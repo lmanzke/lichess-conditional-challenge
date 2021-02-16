@@ -61,6 +61,7 @@ export type SatisfyingChallengeInfo = SatisfiedSpecResult & { challenge: Challen
 export type UnsatisfyingChallengeInfo = UnsatisfiedSpecResult & { challenge: Challenge };
 
 export type ChallengeInfo = SatisfyingChallengeInfo | UnsatisfyingChallengeInfo;
+export type DetailedChallengeInfo = { info: ChallengeInfo; checkedConditions: CheckedCondition[] };
 
 export const challengeInfoIsSatisfied: Refinement<ChallengeInfo, SatisfyingChallengeInfo> = (a: SpecResult): a is SatisfyingChallengeInfo => a.isSatisfied;
 export const challengeInfoIsUnsatisfied: Refinement<ChallengeInfo, UnsatisfyingChallengeInfo> = (a: SpecResult): a is UnsatisfyingChallengeInfo => !a.isSatisfied;
@@ -71,6 +72,7 @@ export type CheckedCondition = {
   fieldName: string;
   operator: Relation;
   fieldValue: RuleValueType;
+  expectedFieldValue: RuleValueType;
 };
 export type SpecReaderTypeOf<T> = SRTE.StateReaderTaskEither<CheckedCondition[], AxiosInstance, Error, T>;
 export type Spec = (challenge: Challenge) => SpecReaderTypeOf<SpecResult>;

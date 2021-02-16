@@ -23,11 +23,9 @@ import {
   AppProps,
   Challenge,
   ChallengeInfo,
-  challengeInfoIsUnsatisfied,
   CheckedCondition,
   DeclineReason,
-  ReaderTypeOf,
-  Rule,
+  DetailedChallengeInfo,
   SatisfyingChallengeInfo,
   Spec,
   SpecReaderTypeOf,
@@ -35,7 +33,7 @@ import {
   specResultIsSatisfied,
   UnsatisfyingChallengeInfo,
 } from '@/challenge/types';
-import { filter } from 'fp-ts/Array';
+import { filter, map } from 'fp-ts/Array';
 
 const tapRTE = tap4(SRTE.stateReaderTaskEither);
 const _logValue: Endomorphism<SpecReaderTypeOf<unknown>> = tapRTE(console.log);
@@ -84,39 +82,47 @@ const tryGetSpecWithChallenges = flow(
 );
 const acceptFirstMatchingChallengeProcessor: SpecProcessorForChallenges = ([spec, challenges]) => pipe(matchFirstRandom(spec, challenges), SRTE.chain(acceptChallengeInfo));
 
-const executeSpec = (spec: Spec) => (challenge: Challenge): SpecReaderTypeOf<ChallengeInfo> => {
+const executeSpec = (spec: Spec) => (challenge: Challenge): SpecReaderTypeOf<DetailedChallengeInfo> => {
   return pipe(
     challenge,
     spec,
-    SRTE.map<SpecResult, ChallengeInfo>(result => ({ ...result, challenge }))
+    SRTE.map<SpecResult, ChallengeInfo>(result => ({ ...result, challenge })),
+    SRTE.chain(result => SRTE.gets(conditions => ({ checkedConditions: conditions, info: result }))),
+    SRTE.chain(v => _s => RTE.right([v, []]))
   );
 };
-const declineUnsatisfiedChallenges = (unsatisfiedChallenges: UnsatisfyingChallengeInfo[]): SpecReaderTypeOf<string[]> =>
+const handleDetailedChallengeInfos = (detailedChallengeInfos: DetailedChallengeInfo[]): SpecReaderTypeOf<string[]> =>
   pipe(
-    fromIOSpecReader(() => {
-      const unsilentChallenges = unsatisfiedChallenges.filter(unsatisfiedChallenge => !unsatisfiedChallenge.silent);
-      unsilentChallenges.forEach(unsilentChallenge => {
-        unsilentChallenge.challenge.decline(DeclineReason.RULE_FAILED)();
-      });
+    detailedChallengeInfos,
+    map(detailedChallengeInfo => {
+      if (detailedChallengeInfo.info.isSatisfied) {
+        detailedChallengeInfo.info.challenge.accept();
+        return 'Accepted a challenge';
+      }
 
-      return unsilentChallenges;
+      if (detailedChallengeInfo.info.silent) {
+        return 'Silently declined a challenge. Params ' + detailedChallengeInfo.checkedConditions.map(v => JSON.stringify(v)).join(', ');
+      }
+
+      detailedChallengeInfo.info.challenge.decline(DeclineReason.RULE_FAILED)();
+      return 'Declined a challenge';
     }),
-    SRTE.map(unsilentChallenges =>
-      unsilentChallenges.map(unsilentChallenge => {
-        const reasonString = declinedToString(unsilentChallenge);
-
-        return `Declined ${unsilentChallenge.challenge.id}(${unsilentChallenge.challenge.username}) because ${reasonString}`;
-      })
-    ),
-    SRTE.chainFirst(challengeInfos => SRTE.fromIO(() => challengeInfos.forEach(console.log)))
+    map(v => fromIOSpecReader(() => v)),
+    sequenceArray,
+    SRTE.map(v => v as string[])
   );
 
 const declineAllUnmatchingProcessor: SpecProcessorForChallenges = ([spec, challenges]) =>
   pipe(
     challenges.map(executeSpec(spec)),
     sequenceArray,
-    SRTE.map(v => filter(challengeInfoIsUnsatisfied)(v as ChallengeInfo[])),
-    SRTE.chain(declineUnsatisfiedChallenges)
+    SRTE.map(v =>
+      pipe(
+        v as DetailedChallengeInfo[],
+        filter(a => !a.info.isSatisfied)
+      )
+    ),
+    SRTE.chain(handleDetailedChallengeInfos)
   );
 
 const acceptFirstMatchingForElement = flow(tryGetSpecWithChallenges, SRTE.fromReaderTaskEither, SRTE.chain(acceptFirstMatchingChallengeProcessor));

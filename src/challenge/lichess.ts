@@ -44,7 +44,8 @@ export const teamReaderSpec = (value: RuleValueType, operator: Relation, silent 
       const compareResult = compareTeams(value, operator)(teams);
       const checkedCondition: CheckedCondition = {
         fieldName: 'teamID',
-        fieldValue: value,
+        fieldValue: teams.map(team => team.id),
+        expectedFieldValue: value,
         matched: compareResult,
         operator,
       };
@@ -60,8 +61,9 @@ export const encounterSpec = (value: RuleValueType, operator: Relation, silent =
     SRTE.chain(numEncounters => s => {
       const compareResult = compare(operator)(value)(numEncounters);
       const checkedCondition: CheckedCondition = {
-        fieldName: 'teamID',
-        fieldValue: value,
+        fieldName: 'numEncounters',
+        fieldValue: numEncounters,
+        expectedFieldValue: value,
         matched: compareResult,
         operator,
       };
@@ -70,15 +72,28 @@ export const encounterSpec = (value: RuleValueType, operator: Relation, silent =
     SRTE.map(getSpecResult('numEncounters', operator, value, silent))
   );
 
-export type SimpleSpec = (value: RuleValueType, operator: Relation, silent?: boolean) => (challenge: Challenge) => { result: SpecResult; fieldName: string };
+export type SimpleSpec = (
+  value: RuleValueType,
+  operator: Relation,
+  silent?: boolean
+) => (challenge: Challenge) => { result: SpecResult; fieldName: string; expectedFieldValue: RuleValueType };
 export const simpleSpec = (fieldName: string, mapperFn: (challenge: Challenge) => RuleValueType): SimpleSpec => (value: RuleValueType, operator: Relation, silent = false) => (
   challenge: Challenge
-) => pipe(challenge, mapperFn, compare(operator)(value), result => ({ result: getSpecResult(fieldName, operator, value, silent)(result), fieldName }));
+) => {
+  return pipe(challenge, challenge => {
+    const candidateValue = mapperFn(challenge);
+    const result = compare(operator)(value)(candidateValue);
+    const specResult = getSpecResult(fieldName, operator, value, silent)(result);
+
+    return { expectedFieldValue: value, fieldName, result: specResult };
+  });
+};
 const toReaderSpec = (spec: SimpleSpec) => (value: RuleValueType, operator: Relation, silent = false): Spec =>
   flow(spec(value, operator, silent), v => s => {
     const checkedCondition: CheckedCondition = {
       fieldName: v.fieldName,
       fieldValue: value,
+      expectedFieldValue: v.expectedFieldValue,
       matched: v.result.isSatisfied,
       operator,
     };
