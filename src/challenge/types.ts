@@ -1,8 +1,10 @@
 import { JpexInstance } from 'jpex';
 import * as RTE from 'fp-ts/ReaderTaskEither';
+import * as TE from 'fp-ts/TaskEither';
+import * as SRTE from 'fp-ts/StateReaderTaskEither';
 import * as IO from 'fp-ts/IO';
 import { AxiosInstance } from 'axios';
-import { Refinement } from 'fp-ts/function';
+import { pipe, Refinement } from 'fp-ts/function';
 import { Relation } from '@/challenge/operators';
 
 export interface AppProps {
@@ -48,7 +50,7 @@ export enum RuleType {
 }
 
 export type SatisfiedSpecResult = { isSatisfied: true };
-export type UnsatisfiedSpecResult = { isSatisfied: false; silent: boolean; targetValue: RuleValueType; fieldName: string; operator: Relation };
+export type UnsatisfiedSpecResult = { isSatisfied: false; silent: boolean; reason: DeclineReason };
 
 export type SpecResult = SatisfiedSpecResult | UnsatisfiedSpecResult;
 
@@ -64,7 +66,14 @@ export const challengeInfoIsSatisfied: Refinement<ChallengeInfo, SatisfyingChall
 export const challengeInfoIsUnsatisfied: Refinement<ChallengeInfo, UnsatisfyingChallengeInfo> = (a: SpecResult): a is UnsatisfyingChallengeInfo => !a.isSatisfied;
 
 export type ReaderTypeOf<T> = RTE.ReaderTaskEither<AxiosInstance, Error, T>;
-export type Spec = (challenge: Challenge) => ReaderTypeOf<SpecResult>;
+export type CheckedCondition = {
+  matched: boolean;
+  fieldName: string;
+  operator: Relation;
+  fieldValue: RuleValueType;
+};
+export type SpecReaderTypeOf<T> = SRTE.StateReaderTaskEither<CheckedCondition[], AxiosInstance, Error, T>;
+export type Spec = (challenge: Challenge) => SpecReaderTypeOf<SpecResult>;
 
 export interface Challenger {
   rating: number;

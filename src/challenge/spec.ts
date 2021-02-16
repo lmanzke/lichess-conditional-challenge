@@ -1,4 +1,6 @@
 import * as RTE from 'fp-ts/ReaderTaskEither';
+import * as TE from 'fp-ts/TaskEither';
+import * as SRTE from 'fp-ts/StateReaderTaskEither';
 import { Semigroup } from 'fp-ts/Semigroup';
 import { pipe } from 'fp-ts/function';
 import { Monoid } from 'fp-ts/Monoid';
@@ -9,9 +11,9 @@ const andSpec = (spec1: Spec, spec2: Spec): Spec => challenge =>
   pipe(
     challenge,
     spec1,
-    RTE.chain(result => {
+    SRTE.chain(result => {
       if (!result.isSatisfied) {
-        return RTE.of(result);
+        return SRTE.of(result);
       }
 
       return spec2(challenge);
@@ -22,9 +24,9 @@ const orSpec = (spec1: Spec, spec2: Spec): Spec => challenge =>
   pipe(
     challenge,
     spec1,
-    RTE.chain(result => {
+    SRTE.chain(result => {
       if (result.isSatisfied) {
-        return RTE.of(result);
+        return SRTE.of(result);
       }
 
       return spec2(challenge);

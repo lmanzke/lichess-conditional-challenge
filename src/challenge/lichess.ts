@@ -6,10 +6,11 @@ import * as E from 'fp-ts/Either';
 import * as O from 'fp-ts/Option';
 import * as IOE from 'fp-ts/IOEither';
 import { flow, pipe, unsafeCoerce } from 'fp-ts/function';
+import * as SRTE from 'fp-ts/StateReaderTaskEither';
 import * as RTE from 'fp-ts/ReaderTaskEither';
 import * as TE from 'fp-ts/TaskEither';
 import { findFirst, foldMap } from 'fp-ts/Array';
-import { Challenge, DeclineReason, LiChessChallenge, Rule, RuleType, RuleValueType, Spec, SpecResult, Team } from '@/challenge/types';
+import { Challenge, CheckedCondition, DeclineReason, LiChessChallenge, Rule, RuleType, RuleValueType, Spec, SpecReaderTypeOf, SpecResult, Team } from '@/challenge/types';
 
 export const extractNumEncounters = (html: string): number => {
   const div = document.createElement('div');
@@ -22,30 +23,67 @@ export const extractNumEncounters = (html: string): number => {
 
 const compareTeams = (teams: RuleValueType, operator: Relation) => (teamItems: Team[]) => teamItems.some(team => compare(operator)(teams)(team.id));
 
-const getTeamsOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither<AxiosInstance, Error, Team[]> => http =>
+const getTeamsOfChallenge = (challenge: Challenge): SpecReaderTypeOf<Team[]> => s => http =>
   pipe(
     TE.tryCatch(() => http.get<Team[]>(`/api/team/of/${challenge.username}`), unknownError),
-    TE.map(v => v.data)
+    TE.map(v => [v.data, s])
   );
 
-const getNumEncountersOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither<AxiosInstance, Error, number> => http =>
+const getNumEncountersOfChallenge = (challenge: Challenge): SpecReaderTypeOf<number> => s => http =>
   pipe(
     TE.tryCatch(() => http.get<string>(`/@/${challenge.username}/mini`), unknownError),
     TE.map(v => v.data),
-    TE.map(extractNumEncounters)
+    TE.map(html => [extractNumEncounters(html), s])
   );
 
 export const teamReaderSpec = (value: RuleValueType, operator: Relation, silent = false): Spec => (challenge: Challenge) =>
-  pipe(challenge, getTeamsOfChallenge, RTE.map(compareTeams(value, operator)), RTE.map(getSpecResult2('teamId', operator, value, silent)));
+  pipe(
+    challenge,
+    getTeamsOfChallenge,
+    SRTE.chain(teams => s => {
+      const compareResult = compareTeams(value, operator)(teams);
+      const checkedCondition: CheckedCondition = {
+        fieldName: 'teamID',
+        fieldValue: value,
+        matched: compareResult,
+        operator,
+      };
+      return RTE.of([compareResult, s.concat([checkedCondition])]);
+    }),
+    SRTE.map(getSpecResult('teamId', operator, value, silent))
+  );
 
 export const encounterSpec = (value: RuleValueType, operator: Relation, silent = false): Spec => challenge =>
-  pipe(challenge, getNumEncountersOfChallenge, RTE.map(compare(operator)(value)), RTE.map(getSpecResult2('numEncounters', operator, value, silent)));
+  pipe(
+    challenge,
+    getNumEncountersOfChallenge,
+    SRTE.chain(numEncounters => s => {
+      const compareResult = compare(operator)(value)(numEncounters);
+      const checkedCondition: CheckedCondition = {
+        fieldName: 'teamID',
+        fieldValue: value,
+        matched: compareResult,
+        operator,
+      };
+      return RTE.of([compareResult, s.concat([checkedCondition])]);
+    }),
+    SRTE.map(getSpecResult('numEncounters', operator, value, silent))
+  );
 
-export type SimpleSpec = (value: RuleValueType, operator: Relation, silent?: boolean) => (challenge: Challenge) => SpecResult;
+export type SimpleSpec = (value: RuleValueType, operator: Relation, silent?: boolean) => (challenge: Challenge) => { result: SpecResult; fieldName: string };
 export const simpleSpec = (fieldName: string, mapperFn: (challenge: Challenge) => RuleValueType): SimpleSpec => (value: RuleValueType, operator: Relation, silent = false) => (
   challenge: Challenge
-) => pipe(challenge, mapperFn, compare(operator)(value), getSpecResult2(fieldName, operator, value, silent));
-const toReaderSpec = (spec: SimpleSpec) => (value: RuleValueType, operator: Relation, silent = false): Spec => flow(spec(value, operator, silent), ofSpecReader);
+) => pipe(challenge, mapperFn, compare(operator)(value), result => ({ result: getSpecResult(fieldName, operator, value, silent)(result), fieldName }));
+const toReaderSpec = (spec: SimpleSpec) => (value: RuleValueType, operator: Relation, silent = false): Spec =>
+  flow(spec(value, operator, silent), v => s => {
+    const checkedCondition: CheckedCondition = {
+      fieldName: v.fieldName,
+      fieldValue: value,
+      matched: v.result.isSatisfied,
+      operator,
+    };
+    return RTE.of([v.result, s.concat([checkedCondition])]);
+  });
 
 export const ratingSpec: SimpleSpec = simpleSpec('rating', challenge => challenge.challenger.rating);
 export const ratingReaderSpec = toReaderSpec(ratingSpec);
@@ -78,7 +116,7 @@ const getOppositeOperator = (operator: Relation): Relation => {
   );
 };
 
-const getSpecResult2 = (fieldName: string, relation: Relation, targetValue: RuleValueType, silent: boolean) => (result: boolean): SpecResult => {
+const getSpecResult = (fieldName: string, relation: Relation, targetValue: RuleValueType, silent: boolean) => (result: boolean): SpecResult => {
   if (result) {
     return {
       isSatisfied: true,
@@ -88,9 +126,7 @@ const getSpecResult2 = (fieldName: string, relation: Relation, targetValue: Rule
   return {
     isSatisfied: false,
     silent,
-    targetValue,
-    fieldName,
-    operator: getOppositeOperator(relation),
+    reason: DeclineReason.RULE_FAILED,
   };
 };
 
