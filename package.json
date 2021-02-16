@@ -1,6 +1,6 @@
 {
   "name": "team-challenge",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "A vue.js web extension that allows choosing by team",
   "author": "Lucas Manzke",
   "scripts": {
