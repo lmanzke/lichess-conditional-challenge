@@ -48,6 +48,12 @@ export default defineComponent({
             operators: ['less', 'less_or_equal', 'greater', 'greater_or_equal', 'between'],
           },
           {
+            id: 'encountersToday',
+            label: 'Number of encounters today',
+            type: 'integer',
+            operators: ['less', 'less_or_equal', 'greater', 'greater_or_equal', 'between'],
+          },
+          {
             id: 'rating',
             label: 'Rating',
             type: 'integer',
