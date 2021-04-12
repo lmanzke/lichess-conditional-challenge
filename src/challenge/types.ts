@@ -27,6 +27,7 @@ export type RuleValueType = string | number | boolean | string[];
 export enum RuleType {
   TEAM_NAME = 'team-name',
   ENCOUNTERS = 'encounters',
+  ENCOUNTERS_TODAY = 'encountersToday',
   RATING = 'rating',
   RATED = 'rated',
   VARIANT = 'variant',
@@ -65,11 +66,17 @@ export interface Challenge {
 }
 
 export interface Matchup {
+  nbGames: number;
   users: {
     [key: string]: number;
     nbGames: number;
   };
   matchup?: Matchup;
+}
+
+export interface EncounterCount {
+  total: number;
+  today: number;
 }
 
 export interface LiChessChallenge {
@@ -83,6 +90,10 @@ export interface LichessUser {
   id: string;
   name: string;
   patron?: boolean;
+}
+
+export interface DasherInfo {
+  user: LichessUser;
 }
 
 export interface Team {

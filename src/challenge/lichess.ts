@@ -1,22 +1,20 @@
-import { ofSpecReader, sumArray, unknownError } from './utils';
+import { memoizeReaderTaskEither, ofSpecReader, unknownError } from './utils';
 import { compare, mapOperator, Relation } from './operators';
 import { getSpecMonoid } from './spec';
-import { AxiosInstance } from 'axios';
+import { AxiosInstance, AxiosResponse } from 'axios';
 import * as E from 'fp-ts/Either';
 import * as IOE from 'fp-ts/IOEither';
 import { flow, pipe, unsafeCoerce } from 'fp-ts/function';
 import * as RTE from 'fp-ts/ReaderTaskEither';
 import * as TE from 'fp-ts/TaskEither';
 import { foldMap } from 'fp-ts/Array';
-import { Challenge, DeclineReason, LiChessChallenge, Rule, RuleType, RuleValueType, Spec, SpecResult, Team } from '@/challenge/types';
+import { Challenge, DasherInfo, DeclineReason, EncounterCount, LiChessChallenge, Matchup, Rule, RuleType, RuleValueType, Spec, SpecResult, Team } from '@/challenge/types';
 
-export const extractNumEncounters = (html: string): number => {
-  const div = document.createElement('div');
-  div.innerHTML = html;
+export const extractNumEncounters = ({ match }: { match: Matchup }): EncounterCount => {
+  const encountersTotal = match.nbGames;
+  const encountersToday = match.matchup ? match.matchup.nbGames : 0;
 
-  const scores = Array.from(div.querySelectorAll('.upt__score strong')).map(v => parseFloat(v.innerHTML));
-
-  return sumArray(scores);
+  return { total: encountersTotal, today: encountersToday };
 };
 
 const compareTeams = (teams: RuleValueType, operator: Relation) => (teamItems: Team[]) => teamItems.some(team => compare(operator)(teams)(team.id));
@@ -27,11 +25,23 @@ const getTeamsOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither<AxiosIn
     TE.map(v => v.data)
   );
 
-const getNumEncountersOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither<AxiosInstance, Error, number> => http =>
+const getAccountInfo: RTE.ReaderTaskEither<AxiosInstance, Error, AxiosResponse<DasherInfo>> = memoizeReaderTaskEither(http =>
+  TE.tryCatch(
+    () => http.get<DasherInfo>('/dasher', { headers: { accept: 'application/vnd.lichess.v5+json', 'x-requested-with': 'XMLHttpRequest' } }),
+    unknownError
+  )
+);
+
+const getNumEncountersOfChallenge = (challenge: Challenge): RTE.ReaderTaskEither<AxiosInstance, Error, EncounterCount> =>
   pipe(
-    TE.tryCatch(() => http.get<string>(`/@/${challenge.username}/mini`), unknownError),
-    TE.map(v => v.data),
-    TE.map(extractNumEncounters)
+    RTE.bindTo('accountInfo')(getAccountInfo),
+    RTE.bind('match', ({ accountInfo }) => http =>
+      TE.tryCatch(() => {
+        return http.get<Matchup>(`/api/crosstable/${challenge.username}/${accountInfo.data.user.id}?matchup=1`);
+      }, unknownError)
+    ),
+    RTE.map(v => ({ accountInfo: v.accountInfo.data, match: v.match.data })),
+    RTE.map(extractNumEncounters)
   );
 
 type DeclinedHandler = () => { silent: boolean; reason: DeclineReason };
@@ -41,7 +51,20 @@ export const teamReaderSpec = (value: RuleValueType, operator: Relation, decline
   flow(getTeamsOfChallenge, RTE.map(compareTeams(value, operator)), RTE.map(getSpecResult(declineHandler)));
 
 export const encounterSpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec =>
-  flow(getNumEncountersOfChallenge, RTE.map(compare(operator)(value)), RTE.map(getSpecResult(declineHandler)));
+  flow(
+    getNumEncountersOfChallenge,
+    RTE.map(v => v.total),
+    RTE.map(compare(operator)(value)),
+    RTE.map(getSpecResult(declineHandler))
+  );
+
+export const encounterTodaySpec = (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec =>
+  flow(
+    getNumEncountersOfChallenge,
+    RTE.map(v => v.today),
+    RTE.map(compare(operator)(value)),
+    RTE.map(getSpecResult(declineHandler))
+  );
 
 export const simpleSpec = (mapperFn: (challenge: Challenge) => RuleValueType) => (value: RuleValueType, operator: Relation, declineHandler = defaultDeclineHandler): Spec =>
   flow(mapperFn, compare(operator)(value), getSpecResult(declineHandler), ofSpecReader);
@@ -148,6 +171,8 @@ const getRuleTypeFromName = (ruleName: string): RuleType => {
       return RuleType.VARIANT;
     case RuleType.USER_ID:
       return RuleType.USER_ID;
+    case RuleType.ENCOUNTERS_TODAY:
+      return RuleType.ENCOUNTERS_TODAY;
     default:
       return RuleType.TEAM_NAME;
   }
@@ -159,6 +184,8 @@ const mapRuleName = (ruleType: RuleType) => {
       return teamReaderSpec;
     case RuleType.ENCOUNTERS:
       return encounterSpec;
+    case RuleType.ENCOUNTERS_TODAY:
+      return encounterTodaySpec;
     case RuleType.RATING:
       return ratingReaderSpec;
     case RuleType.RATED:

@@ -33,7 +33,8 @@ import {
 import { filter } from 'fp-ts/Array';
 
 const tapRTE = tap3(RTE.readerTaskEither);
-const _logValue: Endomorphism<ReaderTypeOf<unknown>> = tapRTE(console.log);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _logValue: Endomorphism<ReaderTypeOf<any>> = tapRTE(console.log);
 const readerTryLichessPrefs: ReaderTypeOf<Rule> = pipe(getLichessPrefs, RTE.fromTaskEither);
 
 type SpecProcessorForChallenges = ([spec, challenges]: [Spec, Challenge[]]) => RTE.ReaderTaskEither<AxiosInstance, Error, string>;
