@@ -7,6 +7,7 @@ import * as RTE from 'fp-ts/ReaderTaskEither';
 import { ReaderTypeOf } from '@/challenge/types';
 import { AxiosInstance } from 'axios';
 import * as IO from 'fp-ts/IO';
+import * as TE from 'fp-ts/TaskEither';
 import { Kind, Kind2, Kind3, URIS, URIS2, URIS3 } from 'fp-ts/HKT';
 import { MonadIO1, MonadIO2, MonadIO3 } from 'fp-ts/MonadIO';
 
@@ -114,3 +115,41 @@ export const tap3 = <M extends URIS3>(hkt: MonadIO3<M>) => <A, B, C>(f: (a: C) =
       return v;
     })
   );
+
+export function memoizeTaskEither<A>(ma: TE.TaskEither<Error, A>): TE.TaskEither<Error, A> {
+  let cache: E.Either<Error, A>;
+  let done = false;
+  return () =>
+    new Promise((resolve, reject) => {
+      if (!done) {
+        ma()
+          .then(result => {
+            cache = result;
+            done = true;
+            resolve(result);
+          })
+          .catch(reject);
+      } else {
+        resolve(cache);
+      }
+    });
+}
+
+export function memoizeReaderTaskEither<R, A>(ma: RTE.ReaderTaskEither<R, Error, A>): RTE.ReaderTaskEither<R, Error, A> {
+  let cache: E.Either<Error, A>;
+  let done = false;
+  return r => () =>
+    new Promise((resolve, reject) => {
+      if (!done) {
+        ma(r)()
+          .then(result => {
+            cache = result;
+            done = true;
+            resolve(result);
+          })
+          .catch(reject);
+      } else {
+        resolve(cache);
+      }
+    });
+}
