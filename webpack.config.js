@@ -133,9 +133,9 @@ if (config.mode === 'production') {
 
 if (process.env.HMR === 'true') {
   config.plugins = (config.plugins || []).concat([
-    //new ExtensionReloader({
-    //  manifest: __dirname + '/src/manifest.json',
-    //}),
+    new ExtensionReloader({
+      manifest: __dirname + '/src/manifest.json',
+    }),
   ]);
 }
 

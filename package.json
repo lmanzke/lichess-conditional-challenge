@@ -15,6 +15,9 @@
     "watch": "npm run build -- --watch",
     "watch:dev": "cross-env HMR=true npm run build:dev -- --watch"
   },
+  "resolutions": {
+    "webpack-sources": "^2.0.0"
+  },
   "dependencies": {
     "awesome-bootstrap-checkbox": "0.3.7",
     "axios": "^0.21.1",
