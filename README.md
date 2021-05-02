@@ -67,4 +67,4 @@ If you have any ideas or requests for other conditions, you can open an issue in
 
 # Donations
 
-If you like this extension, I'd be happy about a [small donation](paypal.me/lumanzke/5)! :)
+If you like this extension, I'd be happy about a [small donation](https://www.paypal.me/lumanzke/5)! :)
