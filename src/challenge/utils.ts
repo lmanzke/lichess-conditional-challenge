@@ -24,6 +24,8 @@ export interface SafeSplitCollection<T> {
   other: T[];
 }
 
+export const isDevMode = (): boolean => !('update_url' in chrome.runtime.getManifest());
+
 export const isNonEmptyArray = getRefinement(fromArray);
 
 export interface Splitter {

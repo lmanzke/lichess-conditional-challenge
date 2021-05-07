@@ -2,20 +2,21 @@
   <div class="extender">
     <button @click="acceptMatchingClicked">Accept matching challenge</button>
     <button @click="declineUnmatchingClicked">Decline all unmatching</button>
+    <button v-if="devMode" @click="logInfoClicked">Log info</button>
   </div>
 </template>
 
 <script lang="ts">
 import { convertRuleReader, getChallengeElement, getChallengeInfosReader } from '@/challenge/lichess';
 import { getLichessPrefs } from '@/challenge/storage';
-import { defineComponent, provide } from 'vue';
+import { computed, defineComponent, provide } from 'vue';
 import { JpexInstance } from 'jpex';
 import * as RT from 'fp-ts/ReaderTask';
 import * as RTE from 'fp-ts/ReaderTaskEither';
 import { Endomorphism, flow, pipe } from 'fp-ts/function';
 import { NonEmptyArray } from 'fp-ts/NonEmptyArray';
 import { AxiosInstance } from 'axios';
-import { ensureNonEmptyArrayReader, fromIOSpecReader, ofSpecReader, safeRandomElement, sequenceReaderTaskEither, tap3 } from '@/challenge/utils';
+import { ensureNonEmptyArrayReader, fromIOSpecReader, isDevMode, ofSpecReader, safeRandomElement, sequenceReaderTaskEither, tap3 } from '@/challenge/utils';
 import { sequenceArray } from 'fp-ts/ReaderTaskEither';
 import {
   ChallengeInfo,
@@ -108,12 +109,26 @@ const declineAllUnmatchingProcessor: SpecProcessorForChallenges = ([spec, challe
 const acceptFirstMatchingForElement = flow(tryGetSpecWithChallenges, RTE.chain(acceptFirstMatchingChallengeProcessor));
 const declineAllUnmatchingForElement = flow(tryGetSpecWithChallenges, RTE.chain(declineAllUnmatchingProcessor));
 
-const logResult = RTE.fold<AxiosInstance, Error, string, void>(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const logResult = RTE.fold<AxiosInstance, Error, any, void>(
   left => RT.fromIO(() => console.log(left.message)),
   right => RT.fromIO(() => console.log(right))
 );
 const logAcceptFirstMatchingForElement = flow(acceptFirstMatchingForElement, logResult);
 const logDeclineAllUnmatchingForElement = flow(declineAllUnmatchingForElement, logResult);
+
+const logInfo = (container: HTMLElement) =>
+  pipe(
+    RTE.bindTo('rules')(readerTryLichessPrefs),
+    RTE.bind('specs', () =>
+      pipe(
+        container,
+        tryGetSpecWithChallenges,
+        RTE.map(([spec, challenges]) => ({ spec, challenges }))
+      )
+    ),
+    logResult
+  );
 
 export default defineComponent({
   props: {
@@ -132,10 +147,14 @@ export default defineComponent({
 
     const acceptMatchingClicked = logAcceptFirstMatchingForElement(props.container)(http);
     const declineUnmatchingClicked = logDeclineAllUnmatchingForElement(props.container)(http);
+    const logInfoClicked = logInfo(props.container)(http);
+    const devMode = computed(() => isDevMode());
 
     return {
       acceptMatchingClicked,
       declineUnmatchingClicked,
+      logInfoClicked,
+      devMode,
     };
   },
 });

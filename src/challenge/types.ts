@@ -32,6 +32,10 @@ export enum RuleType {
   RATED = 'rated',
   VARIANT = 'variant',
   USER_ID = 'user-id',
+  TIMECONTROL_TYPE = 'timecontrolType',
+  LIMIT_SECONDS = 'limitSeconds',
+  INCREMENT_SECONDS = 'incrementSeconds',
+  CHALLENGE_COLOR = 'challengeColor',
 }
 
 export type SatisfyingChallengeInfo = { challenge: Challenge; isSatisfied: true };
@@ -54,12 +58,21 @@ export interface Variant {
   key: string;
 }
 
+export interface TimeControl {
+  type: string;
+  limit?: number;
+  daysPerTurn?: number;
+  increment?: number;
+}
+
 export interface Challenge {
   id: string;
   userLink: string;
   username: string;
+  color: string;
   challenger: Challenger;
   rated: boolean;
+  timeControl: TimeControl;
   variant: Variant;
   accept: IO.IO<void>;
   decline: (reason: DeclineReason) => IO.IO<void>;
@@ -84,6 +97,8 @@ export interface LiChessChallenge {
   challenger: Challenger;
   rated: boolean;
   variant: Variant;
+  timeControl: TimeControl;
+  color: string;
 }
 
 export interface LichessUser {

@@ -71,6 +71,10 @@ export const simpleSpec = (mapperFn: (challenge: Challenge) => RuleValueType) =>
 
 export const ratingReaderSpec = simpleSpec(challenge => challenge.challenger.rating);
 export const ratedReaderSpec = simpleSpec(challenge => challenge.rated);
+export const challengeTypeReaderSpec = simpleSpec(challenge => challenge.timeControl.type);
+export const timeLimitReaderSpec = simpleSpec(challenge => challenge.timeControl.limit || 0);
+export const incrementReaderSpec = simpleSpec(challenge => challenge.timeControl.increment || 0);
+export const colorReaderSpec = simpleSpec(challenge => challenge.color);
 export const variantReaderSpec = simpleSpec(challenge => challenge.variant.key);
 export const userIdReaderSpec = simpleSpec(challenge => challenge.challenger.id);
 
@@ -173,6 +177,14 @@ const getRuleTypeFromName = (ruleName: string): RuleType => {
       return RuleType.USER_ID;
     case RuleType.ENCOUNTERS_TODAY:
       return RuleType.ENCOUNTERS_TODAY;
+    case RuleType.TIMECONTROL_TYPE:
+      return RuleType.TIMECONTROL_TYPE;
+    case RuleType.LIMIT_SECONDS:
+      return RuleType.LIMIT_SECONDS;
+    case RuleType.INCREMENT_SECONDS:
+      return RuleType.INCREMENT_SECONDS;
+    case RuleType.CHALLENGE_COLOR:
+      return RuleType.CHALLENGE_COLOR;
     default:
       return RuleType.TEAM_NAME;
   }
@@ -194,11 +206,29 @@ const mapRuleName = (ruleType: RuleType) => {
       return variantReaderSpec;
     case RuleType.USER_ID:
       return userIdReaderSpec;
+    case RuleType.INCREMENT_SECONDS:
+      return incrementReaderSpec;
+    case RuleType.TIMECONTROL_TYPE:
+      return challengeTypeReaderSpec;
+    case RuleType.CHALLENGE_COLOR:
+      return colorReaderSpec;
+    case RuleType.LIMIT_SECONDS:
+      return timeLimitReaderSpec;
   }
 };
 
 const getDeclineHandler = (value: RuleValueType, ruleType: RuleType, operator: Relation, silent: boolean): DeclinedHandler => () => {
-  const unmappedRuleTypes: RuleType[] = [RuleType.ENCOUNTERS, RuleType.TEAM_NAME, RuleType.USER_ID, RuleType.RATING];
+  const unmappedRuleTypes: RuleType[] = [
+    RuleType.TIMECONTROL_TYPE,
+    RuleType.INCREMENT_SECONDS,
+    RuleType.LIMIT_SECONDS,
+    RuleType.ENCOUNTERS,
+    RuleType.ENCOUNTERS_TODAY,
+    RuleType.TEAM_NAME,
+    RuleType.USER_ID,
+    RuleType.RATING,
+    RuleType.CHALLENGE_COLOR,
+  ];
 
   if (unmappedRuleTypes.includes(ruleType)) {
     return {
