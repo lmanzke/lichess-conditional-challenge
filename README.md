@@ -19,11 +19,22 @@ Rules can be marked as silent - if they are silent, then challenges that fail th
 This is useful if you do not want to accept the challenge, but also it should not be declined (just ignored).
 
 It is powered by [Vue.js](https://github.com/vuejs/vue), although one could argue that it might be overkill for this particular usage. As I still think it is an awesome
-framework (and the overhead - which is small anyway - is irrelevant for a chrome extension), I used it anyway. It also makes use of fp-ts - this project has become kind of a playground for such things :).
+framework (and the overhead - which is small anyway - is irrelevant for a chrome extension), I used it anyway. The logic for matching challenges is written with
+[Effect](https://effect.website) - this project has become kind of a playground for such things :).
 
-Furthermore, at the moment, the extension uses jquery as a query builder component is involved. I am probably going to replace this
-at some point to get rid of some dependencies (and one makes use of eval so I had to lower the extension's content security policy), but for now, it is used as the configuration
-module for the extension.
+It is a Manifest V3 extension built with Vite. The rule editor on the options page is a small Vue component (it used to be jQuery QueryBuilder, which needed
+`unsafe-eval` and is therefore not allowed in Manifest V3).
+
+# Development
+
+```sh
+npm install
+npm run build        # production build into dist/ (load that folder as an unpacked extension)
+npm run watch        # development build that rebuilds on changes
+npm run build-zip    # build and zip for the web store into dist-zip/
+npm test             # vitest
+npm run typecheck && npm run lint
+```
 
 # Usage
 

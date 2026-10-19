@@ -1,8 +1,5 @@
-import { ordNumber } from 'fp-ts/Ord';
-import * as O from 'fp-ts/Option';
-import { Ordering } from 'fp-ts/Ordering';
-import { flow, not, Predicate } from 'fp-ts/function';
-import { RuleValueType } from '@/challenge/types';
+import { Option, Order, Predicate } from 'effect';
+import type { RuleValueType } from '@/challenge/types';
 
 export enum Relation {
   LESS_THAN = 'LT',
@@ -40,129 +37,81 @@ export const mapOperator = (operator: string): Relation => {
   }
 };
 
-export const ordOptionNumber = O.getOrd(ordNumber);
-export const eqOptionNumber = O.getEq(ordNumber);
+type Candidate = RuleValueType;
+type Comparand = RuleValueType | number[] | string[];
+type Comparison = (value: Comparand) => Predicate.Predicate<Candidate>;
 
-export const toNumber = (value: RuleValueType | undefined | null): O.Option<number> => {
-  if (typeof value === 'undefined' || typeof value === 'boolean' || value === null) {
-    return O.none;
+export const ordOptionNumber = Option.makeOrder(Order.Number);
+
+export const toNumber = (value: Candidate | undefined | null): Option.Option<number> => {
+  if (value === undefined || value === null || typeof value === 'boolean' || Array.isArray(value)) {
+    return Option.none();
   }
 
-  if (typeof value === 'number') {
-    return O.some(value);
-  }
+  const parsed = typeof value === 'number' ? value : parseFloat(value);
 
-  if (Array.isArray(value)) {
-    return O.none;
-  }
-
-  const parsed = parseFloat(value);
-  if (isNaN(parsed)) {
-    return O.none;
-  }
-
-  return O.some(parsed);
+  return Number.isNaN(parsed) ? Option.none() : Option.some(parsed);
 };
 
-export const numberComparison = (predicate: Predicate<Ordering>) => (value: RuleValueType | number[] | string[]): Predicate<RuleValueType> => (candidate: RuleValueType) => {
-  if (Array.isArray(value)) {
+/** Applies `predicate` to the ordering of the candidate relative to the value. */
+export const numberComparison =
+  (predicate: Predicate.Predicate<-1 | 0 | 1>) =>
+  (value: Comparand): Predicate.Predicate<Candidate> =>
+  candidate => {
+    if (Array.isArray(value) || typeof value === 'boolean' || typeof candidate === 'boolean') {
+      return false;
+    }
+
+    return predicate(ordOptionNumber(toNumber(candidate), toNumber(value)));
+  };
+
+const eq =
+  <A>(value: A): Predicate.Predicate<A> =>
+  candidate =>
+    value === candidate;
+const notEq = (value: Comparand): Predicate.Predicate<Candidate> => Predicate.not(eq<unknown>(value));
+
+export const lessThan = numberComparison(order => order === -1);
+export const greaterThan = numberComparison(order => order === 1);
+export const lessThanEqual = (value: Comparand) => Predicate.not(greaterThan(value));
+export const greaterThanEqual = (value: Comparand) => Predicate.not(lessThan(value));
+
+const isStringArray = (value: unknown[]): value is string[] => value.every(Predicate.isString);
+const isNumberArray = (value: unknown[]): value is number[] => value.every(Predicate.isNumber);
+
+const isIn: Comparison = value => candidate => {
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof candidate === 'boolean') {
     return false;
   }
 
-  if (typeof value === 'boolean' || typeof candidate === 'boolean') {
-    return false;
+  const values = typeof value === 'string' ? value.split(';') : value;
+
+  if (isNumberArray(values)) {
+    const candidateNumber = toNumber(candidate);
+    return values.some(v => Option.isSome(candidateNumber) && candidateNumber.value === v);
   }
 
-  const valueNumber = toNumber(value);
-  const candidateNumber = toNumber(candidate);
-
-  return predicate(ordOptionNumber.compare(candidateNumber, valueNumber));
+  return values.includes(candidate.toString());
 };
 
-const eq = <A>(value: A): Predicate<A> => (candidate: A) => value === candidate;
-const notEq = flow(eq, not);
-const _oneOf = <A>(value: A[]): Predicate<A> => (candidate: A) => value.includes(candidate);
-
-export const lessThan = numberComparison(eq<Ordering>(-1));
-export const greaterThan = numberComparison(eq<Ordering>(1));
-export const lessThanEqual = flow(greaterThan, not);
-export const greaterThanEqual = flow(lessThan, not);
-
-const isStringArray = (value: unknown[]): value is string[] => {
-  if (!Array.isArray(value)) {
+const isBetween: Comparison = value => candidate => {
+  if (typeof candidate !== 'number' || !Array.isArray(value)) {
     return false;
   }
 
-  return value.every(v => typeof v === 'string');
+  const numbers = isStringArray(value)
+    ? value
+        .map(toNumber)
+        .filter(Option.isSome)
+        .map(o => o.value)
+    : value;
+
+  return candidate >= Math.min(...numbers) && candidate <= Math.max(...numbers);
 };
 
-const isNumberArray = (value: unknown[]): value is number[] => {
-  if (!Array.isArray(value)) {
-    return false;
-  }
+const isNotIn: Comparison = value => Predicate.not(isIn(value));
 
-  return value.every(v => typeof v === 'number');
-};
-
-const isIn = (value: RuleValueType | number[] | string[]): Predicate<RuleValueType> => (candidate: RuleValueType) => {
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return false;
-  }
-
-  if (typeof candidate === 'boolean') {
-    return false;
-  }
-
-  if (typeof value === 'string') {
-    value = value.split(';');
-  }
-
-  if (isNumberArray(value)) {
-    return value.some(v => eqOptionNumber.equals(O.of(v), toNumber(candidate)));
-  }
-
-  return value.includes(candidate.toString());
-};
-
-const optionMin = (numberOptions: O.Option<number>[]) =>
-  numberOptions.reduce((min, option) => {
-    const currentValue = O.getOrElse(() => Number.MAX_VALUE)(option);
-    return ordNumber.compare(min, currentValue) < 0 ? min : currentValue;
-  }, Number.MAX_VALUE);
-
-const optionMax = (numberOptions: O.Option<number>[]) =>
-  numberOptions.reduce((max, option) => {
-    const currentValue = O.getOrElse(() => Number.MIN_VALUE)(option);
-    return ordNumber.compare(max, currentValue) > 0 ? max : currentValue;
-  }, Number.MIN_VALUE);
-
-const isBetween = (value: RuleValueType | number[] | string[]): Predicate<RuleValueType> => (candidate: RuleValueType) => {
-  if (typeof candidate !== 'number') {
-    return false;
-  }
-
-  if (!Array.isArray(value)) {
-    return false;
-  }
-
-  if (isStringArray(value)) {
-    const numberOptions = value.map(toNumber);
-
-    const min = optionMin(numberOptions);
-    const max = optionMax(numberOptions);
-
-    return candidate >= min && candidate <= max;
-  }
-
-  const min = Math.min(...value);
-  const max = Math.max(...value);
-
-  return candidate >= min && candidate <= max;
-};
-
-const isNotIn = flow(isIn, not);
-
-export const compare = (relation: Relation): ((value: RuleValueType | number[] | string[]) => Predicate<RuleValueType>) => {
+export const compare = (relation: Relation): Comparison => {
   switch (relation) {
     case Relation.LESS_THAN:
       return lessThan;

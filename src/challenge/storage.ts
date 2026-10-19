@@ -1,32 +1,21 @@
-import * as TE from 'fp-ts/TaskEither';
-import * as T from 'fp-ts/Task';
-import * as IOE from 'fp-ts/IOEither';
-import { pipe } from 'fp-ts/function';
-import { Rule } from '@/challenge/types';
+import { Effect } from 'effect';
+import type { Rule } from '@/challenge/types';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare const chrome: { storage: any };
+export const RULES_KEY = 'lichessTeamRules';
 
-const tryParse = <A>(str: string) =>
-  IOE.tryCatch<Error, A>(
-    () => JSON.parse(str),
-    reason => reason as Error
-  );
-
-export const getPromisedStorageKeys = (keys: string[]): T.Task<{ [key: string]: string }> => () => {
-  return new Promise(resolve => {
-    chrome.storage.sync.get(keys, resolve);
+export const getLichessPrefs: Effect.Effect<Rule, Error> = Effect.gen(function* () {
+  const stored = yield* Effect.tryPromise({
+    try: () => chrome.storage.sync.get(RULES_KEY),
+    catch: cause => new Error(`could not read prefs: ${String(cause)}`),
   });
-};
+  const raw = stored[RULES_KEY];
 
-export const getLichessPrefs = pipe(
-  getPromisedStorageKeys(['lichessTeamRules']),
-  TE.fromTask,
-  TE.chain(result => {
-    if (result.lichessTeamRules) {
-      return TE.fromIOEither(tryParse<Rule>(result.lichessTeamRules));
-    } else {
-      return TE.left(new Error('no prefs found'));
-    }
-  })
-);
+  if (typeof raw !== 'string' || raw === '') {
+    return yield* Effect.fail(new Error('no prefs found'));
+  }
+
+  return yield* Effect.try({
+    try: () => JSON.parse(raw) as Rule,
+    catch: cause => new Error(`invalid prefs: ${String(cause)}`),
+  });
+});

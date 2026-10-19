@@ -1,13 +1,5 @@
-import { JpexInstance } from 'jpex';
-import * as RTE from 'fp-ts/ReaderTaskEither';
-import * as IO from 'fp-ts/IO';
-import { AxiosInstance } from 'axios';
-import { Refinement } from 'fp-ts/function';
-
-export interface AppProps {
-  container: HTMLElement;
-  dependencies: JpexInstance;
-}
+import type { Effect } from 'effect';
+import type { Lichess } from '@/challenge/lichess-api';
 
 export enum DeclineReason {
   RULE_FAILED = 'ruleFailed',
@@ -23,6 +15,8 @@ export enum DeclineReason {
 }
 
 export type RuleValueType = string | number | boolean | string[];
+/** What the options page stores; 'between' rules hold two numbers. */
+export type RuleValue = RuleValueType | number[];
 
 export enum RuleType {
   TEAM_NAME = 'team-name',
@@ -38,16 +32,14 @@ export enum RuleType {
   CHALLENGE_COLOR = 'challengeColor',
 }
 
-export type SatisfyingChallengeInfo = { challenge: Challenge; isSatisfied: true };
-export type UnsatisfyingChallengeInfo = { challenge: Challenge; isSatisfied: false; silent: boolean; reason: DeclineReason };
+export type SatisfiedSpecResult = { isSatisfied: true };
+export type UnsatisfiedSpecResult = { isSatisfied: false; silent: boolean; reason: DeclineReason };
+export type SpecResult = SatisfiedSpecResult | UnsatisfiedSpecResult;
 
-export type ChallengeInfo = SatisfyingChallengeInfo | UnsatisfyingChallengeInfo;
+export type ChallengeInfo = (SatisfiedSpecResult | UnsatisfiedSpecResult) & { challenge: Challenge };
+export type UnsatisfyingChallengeInfo = UnsatisfiedSpecResult & { challenge: Challenge };
 
-export const challengeInfoIsSatisfied: Refinement<ChallengeInfo, SatisfyingChallengeInfo> = (a: SpecResult): a is SatisfyingChallengeInfo => a.isSatisfied;
-export const challengeInfoIsUnsatisfied: Refinement<ChallengeInfo, UnsatisfyingChallengeInfo> = (a: SpecResult): a is UnsatisfyingChallengeInfo => !a.isSatisfied;
-
-export type ReaderTypeOf<T> = RTE.ReaderTaskEither<AxiosInstance, Error, T>;
-export type Spec = (challenge: Challenge) => RTE.ReaderTaskEither<AxiosInstance, Error, SpecResult>;
+export type Spec = (challenge: Challenge) => Effect.Effect<SpecResult, Error, Lichess>;
 
 export interface Challenger {
   rating: number;
@@ -74,16 +66,13 @@ export interface Challenge {
   rated: boolean;
   timeControl: TimeControl;
   variant: Variant;
-  accept: IO.IO<void>;
-  decline: (reason: DeclineReason) => IO.IO<void>;
+  accept: () => void;
+  decline: (reason: DeclineReason) => void;
 }
 
 export interface Matchup {
   nbGames: number;
-  users: {
-    [key: string]: number;
-    nbGames: number;
-  };
+  users: Record<string, number>;
   matchup?: Matchup;
 }
 
@@ -126,15 +115,7 @@ export type Rule = {
   condition: string | undefined;
   rules: Rule[];
   id: string;
-  value: string;
+  value: RuleValue;
   operator: string;
   silent: boolean;
 };
-
-export type SatisfiedSpecResult = { isSatisfied: true };
-export type UnsatisfiedSpecResult = { isSatisfied: false; silent: boolean; reason: DeclineReason };
-
-export type SpecResult = SatisfiedSpecResult | UnsatisfiedSpecResult;
-
-export const specResultIsSatisfied: Refinement<SpecResult, SatisfiedSpecResult> = (a: SpecResult): a is SatisfiedSpecResult => a.isSatisfied;
-export const specResultIsUnsatisfied: Refinement<SpecResult, UnsatisfiedSpecResult> = (a: SpecResult): a is UnsatisfiedSpecResult => !a.isSatisfied;
