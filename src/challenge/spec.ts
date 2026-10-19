@@ -1,63 +1,20 @@
-import * as RTE from 'fp-ts/ReaderTaskEither';
-import { Semigroup } from 'fp-ts/Semigroup';
-import { pipe } from 'fp-ts/function';
-import { Monoid } from 'fp-ts/Monoid';
-import { DeclineReason, Spec, SpecResult } from '@/challenge/types';
-import { ofSpecReader } from '@/challenge/utils';
+import { Effect } from 'effect';
+import { DeclineReason, type Spec } from '@/challenge/types';
 
-const andSpec = (spec1: Spec, spec2: Spec): Spec => challenge =>
-  pipe(
-    challenge,
-    spec1,
-    RTE.chain(result => {
-      if (!result.isSatisfied) {
-        return RTE.of(result);
-      }
+export const anySpec: Spec = () => Effect.succeed({ isSatisfied: true });
+export const noneSpec: Spec = () => Effect.succeed({ isSatisfied: false, silent: false, reason: DeclineReason.RULE_FAILED });
 
-      return spec2(challenge);
-    })
-  );
+/** Short-circuits: `second` only runs (and only causes requests) if `first` is satisfied. */
+export const andSpec =
+  (first: Spec, second: Spec): Spec =>
+  challenge =>
+    Effect.flatMap(first(challenge), result => (result.isSatisfied ? second(challenge) : Effect.succeed(result)));
 
-const orSpec = (spec1: Spec, spec2: Spec): Spec => challenge =>
-  pipe(
-    challenge,
-    spec1,
-    RTE.chain(result => {
-      if (result.isSatisfied) {
-        return RTE.of(result);
-      }
+/** Short-circuits: `second` only runs if `first` is not satisfied. */
+export const orSpec =
+  (first: Spec, second: Spec): Spec =>
+  challenge =>
+    Effect.flatMap(first(challenge), result => (result.isSatisfied ? Effect.succeed(result) : second(challenge)));
 
-      return spec2(challenge);
-    })
-  );
-
-export const anySpec: Spec = _challenge => ofSpecReader<SpecResult>({ isSatisfied: true });
-export const noneSpec: Spec = _challenge => ofSpecReader<SpecResult>({ isSatisfied: false, silent: false, reason: DeclineReason.RULE_FAILED });
-
-const andSpecSemigroup: Semigroup<Spec> = {
-  concat: andSpec,
-};
-
-const orSpecSemigroup: Semigroup<Spec> = {
-  concat: orSpec,
-};
-
-const andSpecMonoid: Monoid<Spec> = {
-  concat: andSpecSemigroup.concat,
-  empty: anySpec,
-};
-
-const orSpecMonoid: Monoid<Spec> = {
-  concat: orSpecSemigroup.concat,
-  empty: noneSpec,
-};
-
-export const getSpecMonoid = (operator: string): Monoid<Spec> => {
-  switch (operator) {
-    case 'AND':
-      return andSpecMonoid;
-    case 'OR':
-    default:
-      return orSpecMonoid;
-  }
-};
+/** Folds specs with the combinator for `condition` ('AND', anything else is 'OR'). Empty AND is always satisfied, empty OR never. */
+export const combineSpecs = (condition: string, specs: Spec[]): Spec => (condition === 'AND' ? specs.reduce(andSpec, anySpec) : specs.reduce(orSpec, noneSpec));

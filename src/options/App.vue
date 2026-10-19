@@ -1,172 +1,114 @@
 <template>
   <div class="options-container">
-    <query-builder :options="queryBuilderOptions" @rulesChanged="handleRuleChange"></query-builder>
+    <RuleNode v-if="rules" :node="rules" root />
+    <div class="actions">
+      <button type="button" class="primary" @click="save">Save</button>
+      <button type="button" class="danger" @click="reset">Reset</button>
+      <span v-if="saved" class="saved">Saved</span>
+    </div>
   </div>
 </template>
 
-<script lang="ts">
-import QueryBuilder from '../builder/QueryBuilder';
-import { defineComponent } from 'vue';
-import { Rule } from '@/challenge/types';
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
+import type { Rule } from '@/challenge/types';
+import { RULES_KEY } from '@/challenge/storage';
+import RuleNode from './RuleNode.vue';
+import { defaultRules } from './filters';
 
-interface AppData {
-  queryBuilderRules?: Rule;
+const rules = ref<Rule>();
+const saved = ref(false);
+
+onMounted(async () => {
+  const stored = (await chrome.storage.sync.get(RULES_KEY))[RULES_KEY];
+  // Rules saved by earlier versions carry additional fields (like `valid`), which are simply kept.
+  rules.value = typeof stored === 'string' && stored !== '' ? JSON.parse(stored) : defaultRules();
+});
+
+async function save() {
+  await chrome.storage.sync.set({ [RULES_KEY]: JSON.stringify(rules.value) });
+  saved.value = true;
+  setTimeout(() => (saved.value = false), 2000);
 }
 
-export default defineComponent({
-  name: 'App',
-  components: { QueryBuilder },
-  methods: {
-    handleRuleChange(newRules: Rule): void {
-      chrome.storage.sync.set({ lichessTeamRules: JSON.stringify(newRules) });
-    },
-  },
-  data: (): AppData => ({
-    queryBuilderRules: undefined,
-  }),
-  computed: {
-    queryBuilderOptions(): unknown {
-      return {
-        plugins: ['bt-checkbox', 'silent', 'bt-selectpicker'],
-        filters: [
-          {
-            id: 'team-name',
-            label: 'Team Name',
-            type: 'string',
-            operators: ['equal', 'not_equal', 'not_in', 'in'],
-          },
-          {
-            id: 'user-id',
-            label: 'User Id',
-            type: 'string',
-            operators: ['equal', 'not_equal', 'not_in', 'in'],
-          },
-          {
-            id: 'encounters',
-            label: 'Number of past encounters',
-            type: 'integer',
-            operators: ['less', 'less_or_equal', 'greater', 'greater_or_equal', 'between'],
-          },
-          {
-            id: 'encountersToday',
-            label: 'Number of encounters today',
-            type: 'integer',
-            operators: ['less', 'less_or_equal', 'greater', 'greater_or_equal', 'between'],
-          },
-          {
-            id: 'rating',
-            label: 'Rating',
-            type: 'integer',
-            operators: ['less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'equal'],
-          },
-          {
-            id: 'rated',
-            label: 'Rated',
-            input: 'radio',
-            type: 'integer',
-            values: {
-              1: 'Yes',
-              0: 'No',
-            },
-            operators: ['equal'],
-          },
-          {
-            id: 'variant',
-            label: 'Variant',
-            input: 'checkbox',
-            type: 'integer',
-            values: {
-              standard: 'Standard',
-              chess960: 'Chess960',
-              crazyhouse: 'Crazyhouse',
-              antichess: 'Antichess',
-              atomic: 'Atomic',
-              horde: 'Horde',
-              kingOfTheHill: 'King Of The Hill',
-              racingKings: 'Racing Kings',
-              threeCheck: 'Three Check',
-            },
-            color: 'primary',
-            operators: ['in', 'not_in'],
-          },
-          {
-            id: 'timecontrolType',
-            label: 'Timecontrol Type',
-            input: 'checkbox',
-            type: 'integer',
-            values: {
-              clock: 'Real Time',
-              correspondence: 'Correspondence',
-              unlimited: 'Unlimited',
-            },
-            color: 'primary',
-            operators: ['in', 'not_in'],
-          },
-          {
-            id: 'limitSeconds',
-            label: 'Timelimit in seconds',
-            type: 'integer',
-            operators: ['less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'equal'],
-          },
-          {
-            id: 'incrementSeconds',
-            label: 'Increment in seconds',
-            type: 'integer',
-            operators: ['less', 'less_or_equal', 'greater', 'greater_or_equal', 'between', 'equal'],
-          },
-          {
-            id: 'challengeColor',
-            label: 'Your Assigned Color',
-            type: 'integer',
-            input: 'checkbox',
-            values: {
-              black: 'White',
-              white: 'Black',
-              random: 'Random',
-            },
-            color: 'primary',
-            operators: ['in', 'not_in'],
-          },
-        ],
-        rules: this.queryBuilderRules,
-      };
-    },
-  },
-  mounted(): void {
-    chrome.storage.sync.get(['lichessTeamRules'], result => {
-      if (result.lichessTeamRules) {
-        const { valid: _valid, ...rules } = JSON.parse(result.lichessTeamRules);
-        this.queryBuilderRules = rules;
-      } else {
-        this.queryBuilderRules = {
-          condition: 'AND',
-          rules: [
-            {
-              id: 'rating',
-              operator: 'greater',
-              value: '0',
-              silent: false,
-              rules: [],
-              condition: undefined,
-            },
-          ],
-          valid: true,
-        };
-      }
-    });
-  },
-});
+async function reset() {
+  rules.value = defaultRules();
+  await save();
+}
 </script>
 
-<style lang="scss">
-.options-container {
-  padding: 20px;
-  min-width: 1200px;
-  min-height: 300px;
-  display: flex;
+<style>
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
 }
 
-.options-container > div {
-  flex: 1;
+.options-container {
+  padding: 20px;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.group {
+  border: 1px solid #8884;
+  border-radius: 6px;
+  padding: 8px;
+  background: #8881;
+}
+
+.group-header,
+.rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 16px;
+}
+
+.rule {
+  padding: 6px;
+  border: 1px solid #8883;
+  border-radius: 4px;
+}
+
+.choices {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+button {
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+button.primary {
+  background: #3b7ddd;
+  color: #fff;
+  border: 1px solid #3b7ddd;
+  border-radius: 4px;
+}
+
+button.danger {
+  color: #c0392b;
+}
+
+.saved {
+  color: #2e8b57;
 }
 </style>
