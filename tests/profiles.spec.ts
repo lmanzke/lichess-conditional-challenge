@@ -11,7 +11,6 @@ import {
   resolveActiveId,
   saveProfiles,
   setActiveProfile,
-  type StorageArea,
 } from '@/challenge/profiles';
 import type { Rule } from '@/challenge/types';
 import { fakeStorage } from './helpers';

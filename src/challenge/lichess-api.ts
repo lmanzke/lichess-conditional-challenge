@@ -30,39 +30,36 @@ export class Lichess extends Context.Service<
   }
 >()('team-challenge/Lichess') {
   static readonly layerFetch = (baseUrl: string, { fetchImpl = (...args) => fetch(...args), rateLimitDelay = '5 seconds' }: LichessOptions = {}) =>
-    Layer.effect(
-      Lichess,
-      Effect.gen(function* () {
-        const getJson = <A>(path: string, headers?: Record<string, string>) =>
-          Effect.tryPromise({
-            try: async () => {
-              const response = await fetchImpl(baseUrl + path, { headers, credentials: 'same-origin' });
-              if (!response.ok) {
-                throw new HttpError({ message: `${response.status} ${response.statusText} for ${path}`, status: response.status });
-              }
-              return (await response.json()) as A;
-            },
-            catch: cause => (cause instanceof HttpError ? cause : new HttpError({ message: String(cause), cause })),
-          }).pipe(Effect.retry({ while: error => error.status === TOO_MANY_REQUESTS, times: MAX_RATE_LIMIT_RETRIES, schedule: Schedule.spaced(rateLimitDelay) }));
-
-        // Only successes are remembered, so a failed request is tried again next time.
-        const cache = new Map<string, { at: number; value: unknown }>();
-        const cached = <A>(key: string, request: Effect.Effect<A, HttpError>): Effect.Effect<A, HttpError> =>
-          Effect.suspend(() => {
-            const hit = cache.get(key);
-            if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
-              return Effect.succeed(hit.value as A);
+    Layer.sync(Lichess, () => {
+      const getJson = <A>(path: string, headers?: Record<string, string>) =>
+        Effect.tryPromise({
+          try: async () => {
+            const response = await fetchImpl(baseUrl + path, { headers, credentials: 'same-origin' });
+            if (!response.ok) {
+              throw new HttpError({ message: `${response.status} ${response.statusText} for ${path}`, status: response.status });
             }
-            return Effect.tap(request, value => Effect.sync(() => void cache.set(key, { at: Date.now(), value })));
-          });
+            return (await response.json()) as A;
+          },
+          catch: cause => (cause instanceof HttpError ? cause : new HttpError({ message: String(cause), cause })),
+        }).pipe(Effect.retry({ while: error => error.status === TOO_MANY_REQUESTS, times: MAX_RATE_LIMIT_RETRIES, schedule: Schedule.spaced(rateLimitDelay) }));
 
-        return Lichess.of({
-          teamsOf: username => cached(`teams:${username}`, getJson<Team[]>(`/api/team/of/${encodeURIComponent(username)}`)),
-          currentUserId: cached('me', getJson<DasherInfo>('/dasher', jsonHeaders).pipe(Effect.map(info => info.user.id))),
-          crosstable: (username, otherUserId) =>
-            cached(`crosstable:${username}:${otherUserId}`, getJson<Matchup>(`/api/crosstable/${encodeURIComponent(username)}/${encodeURIComponent(otherUserId)}?matchup=1`)),
-          incomingChallenges: getJson<{ in: LiChessChallenge[] }>('/challenge', jsonHeaders).pipe(Effect.map(response => response.in)),
+      // Only successes are remembered, so a failed request is tried again next time.
+      const cache = new Map<string, { at: number; value: unknown }>();
+      const cached = <A>(key: string, request: Effect.Effect<A, HttpError>): Effect.Effect<A, HttpError> =>
+        Effect.suspend(() => {
+          const hit = cache.get(key);
+          if (hit && Date.now() - hit.at < CACHE_TTL_MS) {
+            return Effect.succeed(hit.value as A);
+          }
+          return Effect.tap(request, value => Effect.sync(() => void cache.set(key, { at: Date.now(), value })));
         });
-      })
-    );
+
+      return Lichess.of({
+        teamsOf: username => cached(`teams:${username}`, getJson<Team[]>(`/api/team/of/${encodeURIComponent(username)}`)),
+        currentUserId: cached('me', getJson<DasherInfo>('/dasher', jsonHeaders).pipe(Effect.map(info => info.user.id))),
+        crosstable: (username, otherUserId) =>
+          cached(`crosstable:${username}:${otherUserId}`, getJson<Matchup>(`/api/crosstable/${encodeURIComponent(username)}/${encodeURIComponent(otherUserId)}?matchup=1`)),
+        incomingChallenges: getJson<{ in: LiChessChallenge[] }>('/challenge', jsonHeaders).pipe(Effect.map(response => response.in)),
+      });
+    });
 }
