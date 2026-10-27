@@ -3,8 +3,12 @@
     <label v-if="state && state.profiles.length > 1" class="profile">
       Profile
       <select :value="state.activeId" @change="select(($event.target as HTMLSelectElement).value)">
-        <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
+        <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.rules)">{{ profile.name }}</option>
       </select>
+      <span class="info" tabindex="0" aria-label="Rules of this profile">
+        ⓘ
+        <pre class="tooltip">{{ describeRule(getActiveProfile(state).rules) }}</pre>
+      </span>
     </label>
     <button @click="run(acceptMatchingChallenge(container))">Accept matching challenge</button>
     <button @click="run(declineUnmatchingChallenges(container))">Decline all unmatching</button>
@@ -16,7 +20,9 @@
 import { Effect } from 'effect';
 import type { Lichess } from '@/challenge/lichess-api';
 import { acceptMatchingChallenge, declineUnmatchingChallenges, logInfo } from '@/challenge/actions';
+import { getActiveProfile } from '@/challenge/profiles';
 import { useProfiles } from '@/challenge/useProfiles';
+import { describeRule } from '@/options/filters';
 
 const props = defineProps<{
   container: HTMLElement;
@@ -50,6 +56,34 @@ const run = (effect: Effect.Effect<unknown, Error, Lichess>) =>
 .extender .profile select {
   flex: 1;
   min-width: 0;
+}
+
+.extender .info {
+  position: relative;
+  cursor: help;
+}
+
+.extender .tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1;
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  white-space: pre;
+  text-transform: none;
+  font: inherit;
+  color: #333;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px #0003;
+}
+
+.extender .info:hover .tooltip,
+.extender .info:focus .tooltip {
+  display: block;
 }
 
 .extender button {

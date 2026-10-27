@@ -112,10 +112,10 @@ export interface Team {
 }
 
 export type Rule = {
-  condition: string | undefined;
-  rules: Rule[];
-  id: string;
-  value: RuleValue;
-  operator: string;
-  silent: boolean;
+  readonly condition?: string | undefined;
+  readonly rules: ReadonlyArray<Rule>;
+  readonly id: string;
+  readonly value: RuleValue;
+  readonly operator: string;
+  readonly silent: boolean;
 };

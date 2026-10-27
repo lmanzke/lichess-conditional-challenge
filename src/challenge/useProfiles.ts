@@ -1,3 +1,4 @@
+import { Effect } from 'effect';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { affectsProfiles, loadProfiles, setActiveProfile, type ProfileState } from '@/challenge/profiles';
 
@@ -6,13 +7,13 @@ export const useProfiles = () => {
   const state = ref<ProfileState>();
 
   const reload = async () => {
-    state.value = await loadProfiles(chrome.storage.sync);
+    state.value = await Effect.runPromise(loadProfiles(chrome.storage.sync));
   };
   const onChanged = (changes: Record<string, unknown>, area: string) => {
     if (area === 'sync' && affectsProfiles(changes)) void reload();
   };
   const select = async (id: string) => {
-    await setActiveProfile(chrome.storage.sync, id);
+    await Effect.runPromise(setActiveProfile(chrome.storage.sync, id));
     await reload();
   };
 

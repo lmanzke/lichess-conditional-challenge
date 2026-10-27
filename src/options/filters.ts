@@ -91,3 +91,20 @@ export const newRule = (filterId = 'rating'): Rule => {
 };
 
 export const newGroup = (): Rule => ({ condition: 'AND', rules: [newRule()], id: '', operator: '', value: '', silent: false });
+
+const describeValue = (filter: Filter, value: RuleValue): string => {
+  if (Array.isArray(value)) return value.map(v => filter.values?.[String(v)] ?? String(v)).join(filter.input ? ', ' : ' and ');
+  return filter.values?.[String(value)] ?? String(value);
+};
+
+/** A plain text outline of a rule tree, as bullet lines. A challenge is accepted if the outline holds. */
+export const describeRule = (rule: Rule, depth = 0): string => {
+  const indent = '  '.repeat(depth);
+  if (rule.condition === undefined) {
+    const filter = findFilter(rule.id);
+    const silent = rule.silent ? ' (declined silently)' : '';
+    return `${indent}• ${filter.label} ${operatorLabels[rule.operator as FilterOperator] ?? rule.operator} ${describeValue(filter, rule.value)}${silent}`;
+  }
+  const head = `${indent}${depth === 0 ? '' : '• '}${rule.condition === 'OR' ? 'Any of' : 'All of'}:`;
+  return [head, ...rule.rules.map(child => describeRule(child, depth + 1))].join('\n');
+};
