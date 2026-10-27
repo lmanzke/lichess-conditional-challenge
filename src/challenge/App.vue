@@ -1,23 +1,24 @@
 <template>
   <div class="extender">
     <label v-if="state && state.profiles.length > 1" class="profile">
-      Profile
+      {{ t('profile.label') }}
       <select :value="state.activeId" @change="select(($event.target as HTMLSelectElement).value)">
-        <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.rules)">{{ profile.name }}</option>
+        <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.rules, t)">{{ profile.name }}</option>
       </select>
-      <span class="info" tabindex="0" aria-label="Rules of this profile">
+      <span class="info" tabindex="0" :aria-label="t('profile.rulesInfo')">
         ⓘ
-        <pre class="tooltip">{{ describeRule(getActiveProfile(state).rules) }}</pre>
+        <pre class="tooltip">{{ describeRule(getActiveProfile(state).rules, t) }}</pre>
       </span>
     </label>
-    <button @click="run(acceptMatchingChallenge(container))">Accept matching challenge</button>
-    <button @click="run(declineUnmatchingChallenges(container))">Decline all unmatching</button>
+    <button @click="run(acceptMatchingChallenge(container))">{{ t('challenge.acceptMatching') }}</button>
+    <button @click="run(declineUnmatchingChallenges(container))">{{ t('challenge.declineUnmatching') }}</button>
     <button v-if="devMode" @click="run(logInfo(container))">Log info</button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Effect } from 'effect';
+import { useI18n } from 'vue-i18n';
 import type { Lichess } from '@/challenge/lichess-api';
 import { acceptMatchingChallenge, declineUnmatchingChallenges, logInfo } from '@/challenge/actions';
 import { getActiveProfile } from '@/challenge/profiles';
@@ -29,6 +30,7 @@ const props = defineProps<{
   runEffect: <A>(effect: Effect.Effect<A, Error, Lichess>) => Promise<A>;
 }>();
 
+const { t } = useI18n();
 const devMode = import.meta.env.DEV;
 const { state, select } = useProfiles();
 

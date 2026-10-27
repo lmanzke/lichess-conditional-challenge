@@ -1,28 +1,17 @@
 import type { Rule, RuleValue } from '@/challenge/types';
+import type { Translate } from '@/i18n';
 
 export type FilterOperator = 'equal' | 'not_equal' | 'in' | 'not_in' | 'less' | 'less_or_equal' | 'greater' | 'greater_or_equal' | 'between';
 
 export interface Filter {
   id: string;
-  label: string;
   type: 'string' | 'integer';
   /** Renders a set of choices instead of a free input. 'radio' picks one, 'checkbox' any number of them. */
   input?: 'radio' | 'checkbox';
-  values?: Record<string, string>;
+  /** The keys of the choices. Their labels are the messages `values.<filter id>.<key>`. */
+  values?: string[];
   operators: FilterOperator[];
 }
-
-export const operatorLabels: Record<FilterOperator, string> = {
-  equal: 'equal',
-  not_equal: 'not equal',
-  in: 'in',
-  not_in: 'not in',
-  less: 'less',
-  less_or_equal: 'less or equal',
-  greater: 'greater',
-  greater_or_equal: 'greater or equal',
-  between: 'between',
-};
 
 const stringOperators: FilterOperator[] = ['equal', 'not_equal', 'not_in', 'in'];
 const numberOperators: FilterOperator[] = ['less', 'less_or_equal', 'greater', 'greater_or_equal', 'between'];
@@ -30,47 +19,33 @@ const numberOperatorsWithEqual: FilterOperator[] = [...numberOperators, 'equal']
 const inOperators: FilterOperator[] = ['in', 'not_in'];
 
 export const filters: Filter[] = [
-  { id: 'team-name', label: 'Team Name', type: 'string', operators: stringOperators },
-  { id: 'user-id', label: 'User Id', type: 'string', operators: stringOperators },
-  { id: 'encounters', label: 'Number of past encounters', type: 'integer', operators: numberOperators },
-  { id: 'encountersToday', label: 'Number of encounters today', type: 'integer', operators: numberOperators },
-  { id: 'rating', label: 'Rating', type: 'integer', operators: numberOperatorsWithEqual },
-  { id: 'rated', label: 'Rated', type: 'integer', input: 'radio', values: { 1: 'Yes', 0: 'No' }, operators: ['equal'] },
+  { id: 'team-name', type: 'string', operators: stringOperators },
+  { id: 'user-id', type: 'string', operators: stringOperators },
+  { id: 'encounters', type: 'integer', operators: numberOperators },
+  { id: 'encountersToday', type: 'integer', operators: numberOperators },
+  { id: 'rating', type: 'integer', operators: numberOperatorsWithEqual },
+  { id: 'rated', type: 'integer', input: 'radio', values: ['1', '0'], operators: ['equal'] },
   {
     id: 'variant',
-    label: 'Variant',
     type: 'string',
     input: 'checkbox',
-    values: {
-      standard: 'Standard',
-      chess960: 'Chess960',
-      crazyhouse: 'Crazyhouse',
-      antichess: 'Antichess',
-      atomic: 'Atomic',
-      horde: 'Horde',
-      kingOfTheHill: 'King Of The Hill',
-      racingKings: 'Racing Kings',
-      threeCheck: 'Three Check',
-    },
+    values: ['standard', 'chess960', 'crazyhouse', 'antichess', 'atomic', 'horde', 'kingOfTheHill', 'racingKings', 'threeCheck'],
     operators: inOperators,
   },
   {
     id: 'timecontrolType',
-    label: 'Timecontrol Type',
     type: 'string',
     input: 'checkbox',
-    values: { clock: 'Real Time', correspondence: 'Correspondence', unlimited: 'Unlimited' },
+    values: ['clock', 'correspondence', 'unlimited'],
     operators: inOperators,
   },
-  { id: 'limitSeconds', label: 'Timelimit in seconds', type: 'integer', operators: numberOperatorsWithEqual },
-  { id: 'incrementSeconds', label: 'Increment in seconds', type: 'integer', operators: numberOperatorsWithEqual },
+  { id: 'limitSeconds', type: 'integer', operators: numberOperatorsWithEqual },
+  { id: 'incrementSeconds', type: 'integer', operators: numberOperatorsWithEqual },
   {
     id: 'challengeColor',
-    label: 'Your Assigned Color',
     type: 'string',
     input: 'checkbox',
-    // The color is the challenger's, which is the opposite of the one you get.
-    values: { black: 'White', white: 'Black', random: 'Random' },
+    values: ['black', 'white', 'random'],
     operators: inOperators,
   },
 ];
@@ -92,19 +67,19 @@ export const newRule = (filterId = 'rating'): Rule => {
 
 export const newGroup = (): Rule => ({ condition: 'AND', rules: [newRule()], id: '', operator: '', value: '', silent: false });
 
-const describeValue = (filter: Filter, value: RuleValue): string => {
-  if (Array.isArray(value)) return value.map(v => filter.values?.[String(v)] ?? String(v)).join(filter.input ? ', ' : ' and ');
-  return filter.values?.[String(value)] ?? String(value);
+const describeValue = (filter: Filter, value: RuleValue, t: Translate): string => {
+  const label = (v: unknown) => (filter.values ? t(`values.${filter.id}.${String(v)}`) : String(v));
+  return Array.isArray(value) ? value.map(label).join(filter.input ? ', ' : ` ${t('rule.and')} `) : label(value);
 };
 
 /** A plain text outline of a rule tree, as bullet lines. A challenge is accepted if the outline holds. */
-export const describeRule = (rule: Rule, depth = 0): string => {
+export const describeRule = (rule: Rule, t: Translate, depth = 0): string => {
   const indent = '  '.repeat(depth);
   if (rule.condition === undefined) {
     const filter = findFilter(rule.id);
-    const silent = rule.silent ? ' (declined silently)' : '';
-    return `${indent}• ${filter.label} ${operatorLabels[rule.operator as FilterOperator] ?? rule.operator} ${describeValue(filter, rule.value)}${silent}`;
+    const silent = rule.silent ? ` (${t('describe.silent')})` : '';
+    return `${indent}• ${t(`filters.${filter.id}`)} ${t(`operators.${rule.operator}`)} ${describeValue(filter, rule.value, t)}${silent}`;
   }
-  const head = `${indent}${depth === 0 ? '' : '• '}${rule.condition === 'OR' ? 'Any of' : 'All of'}:`;
-  return [head, ...rule.rules.map(child => describeRule(child, depth + 1))].join('\n');
+  const head = `${indent}${depth === 0 ? '' : '• '}${t(rule.condition === 'OR' ? 'describe.anyOf' : 'describe.allOf')}:`;
+  return [head, ...rule.rules.map(child => describeRule(child, t, depth + 1))].join('\n');
 };

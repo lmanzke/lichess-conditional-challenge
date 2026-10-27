@@ -2,44 +2,47 @@
   <div class="options-container">
     <div v-if="state && current" class="profiles">
       <label>
-        Profile
+        {{ t('profile.label') }}
         <select v-model="currentId">
-          <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.rules)">
-            {{ profile.name }}{{ profile.id === state.activeId ? ' (active)' : '' }}
+          <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.rules, t)">
+            {{ profile.name }}{{ profile.id === state.activeId ? ` (${t('profile.active')})` : '' }}
           </option>
         </select>
       </label>
-      <span class="info" tabindex="0" aria-label="Rules of this profile">
+      <span class="info" tabindex="0" :aria-label="t('profile.rulesInfo')">
         ⓘ
-        <pre class="tooltip">{{ describeRule(current.rules) }}</pre>
+        <pre class="tooltip">{{ describeRule(current.rules, t) }}</pre>
       </span>
       <label>
-        Name
+        {{ t('profile.name') }}
         <input type="text" :value="current.name" @input="updateCurrent(p => ({ ...p, name: ($event.target as HTMLInputElement).value }))" />
       </label>
-      <button type="button" :disabled="current.id === state.activeId" @click="state = { ...state, activeId: current.id }">Use this profile</button>
-      <button type="button" @click="add">New</button>
-      <button type="button" @click="duplicate">Duplicate</button>
-      <button type="button" class="danger" :disabled="state.profiles.length < 2" @click="remove">Delete</button>
+      <button type="button" :disabled="current.id === state.activeId" @click="state = { ...state, activeId: current.id }">{{ t('profile.use') }}</button>
+      <button type="button" @click="add">{{ t('profile.new') }}</button>
+      <button type="button" @click="duplicate">{{ t('profile.duplicate') }}</button>
+      <button type="button" class="danger" :disabled="state.profiles.length < 2" @click="remove">{{ t('profile.delete') }}</button>
     </div>
 
     <RuleNode v-if="current" :key="current.id" :node="current.rules" root @change="setRules" />
 
     <div class="actions">
-      <button type="button" class="primary" @click="save">Save</button>
-      <button type="button" class="danger" @click="reset">Reset profile</button>
-      <span v-if="saved" class="saved">Saved</span>
+      <button type="button" class="primary" @click="save">{{ t('profile.save') }}</button>
+      <button type="button" class="danger" @click="reset">{{ t('profile.reset') }}</button>
+      <span v-if="saved" class="saved">{{ t('profile.saved') }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Effect, Optic } from 'effect';
+import { useI18n } from 'vue-i18n';
 import { computed, onMounted, ref, shallowRef } from 'vue';
 import { defaultRules, loadProfiles, newProfile, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
 import type { Rule } from '@/challenge/types';
 import { describeRule } from './filters';
 import RuleNode from './RuleNode.vue';
+
+const { t } = useI18n();
 
 // The state is immutable, so every edit replaces it; a shallow ref is enough to notice that.
 const state = shallowRef<ProfileState>();
@@ -64,21 +67,21 @@ const setRules = (rules: Rule) => updateCurrent(Optic.replace(rulesLens, rules))
 
 function add() {
   if (!state.value) return;
-  const profile = newProfile('New profile');
+  const profile = newProfile(t('profile.defaultName'));
   state.value = { ...state.value, profiles: [...state.value.profiles, profile] };
   currentId.value = profile.id;
 }
 
 function duplicate() {
   if (!state.value || !current.value) return;
-  const profile = newProfile(`${current.value.name} (copy)`, current.value.rules);
+  const profile = newProfile(t('profile.copyOf', { name: current.value.name }), current.value.rules);
   state.value = { ...state.value, profiles: [...state.value.profiles, profile] };
   currentId.value = profile.id;
 }
 
 function remove() {
   if (!state.value || !current.value || state.value.profiles.length < 2) return;
-  if (!confirm(`Delete the profile "${current.value.name}"?`)) return;
+  if (!confirm(t('profile.deleteConfirm', { name: current.value.name }))) return;
 
   const profiles = state.value.profiles.filter(profile => profile.id !== currentId.value);
   const activeId = state.value.activeId === currentId.value ? profiles[0].id : state.value.activeId;
@@ -89,7 +92,7 @@ function remove() {
 async function save() {
   if (!state.value) return;
   // Blank names would make the profile impossible to tell apart in the lichess menu.
-  state.value = { ...state.value, profiles: state.value.profiles.map((profile, index) => ({ ...profile, name: profile.name.trim() || `Profile ${index + 1}` })) };
+  state.value = { ...state.value, profiles: state.value.profiles.map((profile, index) => ({ ...profile, name: profile.name.trim() || t('profile.unnamed', { n: index + 1 }) })) };
   await Effect.runPromise(saveProfiles(chrome.storage.sync, state.value));
   saved.value = true;
   setTimeout(() => (saved.value = false), 2000);
