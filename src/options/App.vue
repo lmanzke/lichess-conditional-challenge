@@ -1,38 +1,83 @@
 <template>
   <div class="options-container">
-    <RuleNode v-if="rules" :node="rules" root />
+    <div v-if="state && current" class="profiles">
+      <label>
+        Profile
+        <select v-model="currentId">
+          <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id">{{ profile.name }}{{ profile.id === state.activeId ? ' (active)' : '' }}</option>
+        </select>
+      </label>
+      <label>
+        Name
+        <input v-model="current.name" type="text" />
+      </label>
+      <button type="button" :disabled="current.id === state.activeId" @click="state.activeId = current.id">Use this profile</button>
+      <button type="button" @click="add">New</button>
+      <button type="button" @click="duplicate">Duplicate</button>
+      <button type="button" class="danger" :disabled="state.profiles.length < 2" @click="remove">Delete</button>
+    </div>
+
+    <RuleNode v-if="current" :key="current.id" :node="current.rules" root />
+
     <div class="actions">
       <button type="button" class="primary" @click="save">Save</button>
-      <button type="button" class="danger" @click="reset">Reset</button>
+      <button type="button" class="danger" @click="reset">Reset profile</button>
       <span v-if="saved" class="saved">Saved</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import type { Rule } from '@/challenge/types';
-import { RULES_KEY } from '@/challenge/storage';
+import { computed, onMounted, ref } from 'vue';
+import { defaultRules, loadProfiles, newProfile, saveProfiles, type ProfileState } from '@/challenge/profiles';
 import RuleNode from './RuleNode.vue';
-import { defaultRules } from './filters';
 
-const rules = ref<Rule>();
+const state = ref<ProfileState>();
+const currentId = ref('');
 const saved = ref(false);
 
+// Rules saved by earlier versions carry additional fields (like `valid`), which are simply kept.
+const current = computed(() => state.value?.profiles.find(profile => profile.id === currentId.value));
+
 onMounted(async () => {
-  const stored = (await chrome.storage.sync.get(RULES_KEY))[RULES_KEY];
-  // Rules saved by earlier versions carry additional fields (like `valid`), which are simply kept.
-  rules.value = typeof stored === 'string' && stored !== '' ? JSON.parse(stored) : defaultRules();
+  state.value = await loadProfiles(chrome.storage.sync);
+  currentId.value = state.value.activeId;
 });
 
+function add() {
+  const profile = newProfile('New profile');
+  state.value?.profiles.push(profile);
+  currentId.value = profile.id;
+}
+
+function duplicate() {
+  if (!current.value) return;
+  const profile = newProfile(`${current.value.name} (copy)`, JSON.parse(JSON.stringify(current.value.rules)));
+  state.value?.profiles.push(profile);
+  currentId.value = profile.id;
+}
+
+function remove() {
+  if (!state.value || !current.value || state.value.profiles.length < 2) return;
+  if (!confirm(`Delete the profile "${current.value.name}"?`)) return;
+
+  state.value.profiles = state.value.profiles.filter(profile => profile.id !== currentId.value);
+  if (state.value.activeId === currentId.value) state.value.activeId = state.value.profiles[0].id;
+  currentId.value = state.value.activeId;
+}
+
 async function save() {
-  await chrome.storage.sync.set({ [RULES_KEY]: JSON.stringify(rules.value) });
+  if (!state.value) return;
+  // Blank names would make the profile impossible to tell apart in the lichess menu.
+  state.value.profiles.forEach((profile, index) => (profile.name = profile.name.trim() || `Profile ${index + 1}`));
+  await saveProfiles(chrome.storage.sync, JSON.parse(JSON.stringify(state.value)));
   saved.value = true;
   setTimeout(() => (saved.value = false), 2000);
 }
 
 async function reset() {
-  rules.value = defaultRules();
+  if (!current.value) return;
+  current.value.rules = defaultRules();
   await save();
 }
 </script>
@@ -56,6 +101,13 @@ async function reset() {
   border-radius: 6px;
   padding: 8px;
   background: #8881;
+}
+
+.profiles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
 }
 
 .group-header,

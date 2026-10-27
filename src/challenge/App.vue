@@ -1,5 +1,11 @@
 <template>
   <div class="extender">
+    <label v-if="state && state.profiles.length > 1" class="profile">
+      Profile
+      <select :value="state.activeId" @change="select(($event.target as HTMLSelectElement).value)">
+        <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
+      </select>
+    </label>
     <button @click="run(acceptMatchingChallenge(container))">Accept matching challenge</button>
     <button @click="run(declineUnmatchingChallenges(container))">Decline all unmatching</button>
     <button v-if="devMode" @click="run(logInfo(container))">Log info</button>
@@ -10,6 +16,7 @@
 import { Effect } from 'effect';
 import type { Lichess } from '@/challenge/lichess-api';
 import { acceptMatchingChallenge, declineUnmatchingChallenges, logInfo } from '@/challenge/actions';
+import { useProfiles } from '@/challenge/useProfiles';
 
 const props = defineProps<{
   container: HTMLElement;
@@ -17,6 +24,7 @@ const props = defineProps<{
 }>();
 
 const devMode = import.meta.env.DEV;
+const { state, select } = useProfiles();
 
 const run = (effect: Effect.Effect<unknown, Error, Lichess>) =>
   props
@@ -28,6 +36,20 @@ const run = (effect: Effect.Effect<unknown, Error, Lichess>) =>
 <style>
 .extender {
   background-color: #fff;
+}
+
+.extender .profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: #777777;
+  text-transform: uppercase;
+}
+
+.extender .profile select {
+  flex: 1;
+  min-width: 0;
 }
 
 .extender button {

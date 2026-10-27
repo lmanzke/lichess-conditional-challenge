@@ -91,5 +91,3 @@ export const newRule = (filterId = 'rating'): Rule => {
 };
 
 export const newGroup = (): Rule => ({ condition: 'AND', rules: [newRule()], id: '', operator: '', value: '', silent: false });
-
-export const defaultRules = (): Rule => ({ condition: 'AND', rules: [{ ...newRule(), operator: 'greater' }], id: '', operator: '', value: '', silent: false });
