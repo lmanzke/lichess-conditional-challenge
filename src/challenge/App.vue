@@ -1,22 +1,38 @@
 <template>
   <div class="extender">
-    <button @click="run(acceptMatchingChallenge(container))">Accept matching challenge</button>
-    <button @click="run(declineUnmatchingChallenges(container))">Decline all unmatching</button>
+    <label v-if="state && state.profiles.length > 1" class="profile">
+      {{ t('profile.label') }}
+      <select :value="state.activeId" @change="select(($event.target as HTMLSelectElement).value)">
+        <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.rules, t)">{{ profile.name }}</option>
+      </select>
+      <span class="info" tabindex="0" :aria-label="t('profile.rulesInfo')">
+        ⓘ
+        <pre class="tooltip">{{ describeRule(getActiveProfile(state).rules, t) }}</pre>
+      </span>
+    </label>
+    <button @click="run(acceptMatchingChallenge(container))">{{ t('challenge.acceptMatching') }}</button>
+    <button @click="run(declineUnmatchingChallenges(container))">{{ t('challenge.declineUnmatching') }}</button>
     <button v-if="devMode" @click="run(logInfo(container))">Log info</button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Effect } from 'effect';
+import { useI18n } from 'vue-i18n';
 import type { Lichess } from '@/challenge/lichess-api';
 import { acceptMatchingChallenge, declineUnmatchingChallenges, logInfo } from '@/challenge/actions';
+import { getActiveProfile } from '@/challenge/profiles';
+import { useProfiles } from '@/challenge/useProfiles';
+import { describeRule } from '@/options/filters';
 
 const props = defineProps<{
   container: HTMLElement;
   runEffect: <A>(effect: Effect.Effect<A, Error, Lichess>) => Promise<A>;
 }>();
 
+const { t } = useI18n();
 const devMode = import.meta.env.DEV;
+const { state, select } = useProfiles();
 
 const run = (effect: Effect.Effect<unknown, Error, Lichess>) =>
   props
@@ -28,6 +44,48 @@ const run = (effect: Effect.Effect<unknown, Error, Lichess>) =>
 <style>
 .extender {
   background-color: #fff;
+}
+
+.extender .profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: #777777;
+  text-transform: uppercase;
+}
+
+.extender .profile select {
+  flex: 1;
+  min-width: 0;
+}
+
+.extender .info {
+  position: relative;
+  cursor: help;
+}
+
+.extender .tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1;
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  white-space: pre;
+  text-transform: none;
+  font: inherit;
+  color: #333;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px #0003;
+}
+
+.extender .info:hover .tooltip,
+.extender .info:focus .tooltip {
+  display: block;
 }
 
 .extender button {

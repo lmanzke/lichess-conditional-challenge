@@ -1,6 +1,7 @@
 import { Effect, ManagedRuntime, Schedule } from 'effect';
 import { createApp } from 'vue';
 import App from './App.vue';
+import { i18n } from '@/i18n';
 import { Lichess } from '@/challenge/lichess-api';
 
 const CHALLENGES_CONTAINER_ID = 'challenge-app';
@@ -25,7 +26,9 @@ const mountApp = Effect.gen(function* () {
 
   const root = document.createElement('div');
   container.prepend(root);
-  createApp(App, { container, runEffect: <A>(effect: Effect.Effect<A, Error, Lichess>) => runtime.runPromise(effect) }).mount(root);
+  createApp(App, { container, runEffect: <A>(effect: Effect.Effect<A, Error, Lichess>) => runtime.runPromise(effect) })
+    .use(i18n)
+    .mount(root);
 });
 
 void mountApp.pipe(

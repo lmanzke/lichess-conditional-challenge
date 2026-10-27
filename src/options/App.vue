@@ -1,38 +1,105 @@
 <template>
   <div class="options-container">
-    <RuleNode v-if="rules" :node="rules" root />
+    <div v-if="state && current" class="profiles">
+      <label>
+        {{ t('profile.label') }}
+        <select v-model="currentId">
+          <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.rules, t)">
+            {{ profile.name }}{{ profile.id === state.activeId ? ` (${t('profile.active')})` : '' }}
+          </option>
+        </select>
+      </label>
+      <span class="info" tabindex="0" :aria-label="t('profile.rulesInfo')">
+        ⓘ
+        <pre class="tooltip">{{ describeRule(current.rules, t) }}</pre>
+      </span>
+      <label>
+        {{ t('profile.name') }}
+        <input type="text" :value="current.name" @input="updateCurrent(p => ({ ...p, name: ($event.target as HTMLInputElement).value }))" />
+      </label>
+      <button type="button" :disabled="current.id === state.activeId" @click="state = { ...state, activeId: current.id }">{{ t('profile.use') }}</button>
+      <button type="button" @click="add">{{ t('profile.new') }}</button>
+      <button type="button" @click="duplicate">{{ t('profile.duplicate') }}</button>
+      <button type="button" class="danger" :disabled="state.profiles.length < 2" @click="remove">{{ t('profile.delete') }}</button>
+    </div>
+
+    <RuleNode v-if="current" :key="current.id" :node="current.rules" root @change="setRules" />
+
     <div class="actions">
-      <button type="button" class="primary" @click="save">Save</button>
-      <button type="button" class="danger" @click="reset">Reset</button>
-      <span v-if="saved" class="saved">Saved</span>
+      <button type="button" class="primary" @click="save">{{ t('profile.save') }}</button>
+      <button type="button" class="danger" @click="reset">{{ t('profile.reset') }}</button>
+      <span v-if="saved" class="saved">{{ t('profile.saved') }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { Effect, Optic } from 'effect';
+import { useI18n } from 'vue-i18n';
+import { computed, onMounted, ref, shallowRef } from 'vue';
+import { defaultRules, loadProfiles, newProfile, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
 import type { Rule } from '@/challenge/types';
-import { RULES_KEY } from '@/challenge/storage';
+import { describeRule } from './filters';
 import RuleNode from './RuleNode.vue';
-import { defaultRules } from './filters';
 
-const rules = ref<Rule>();
+const { t } = useI18n();
+
+// The state is immutable, so every edit replaces it; a shallow ref is enough to notice that.
+const state = shallowRef<ProfileState>();
+const currentId = ref('');
 const saved = ref(false);
 
+const rulesLens = Optic.id<Profile>().key('rules');
+
+const current = computed(() => state.value?.profiles.find(profile => profile.id === currentId.value));
+
 onMounted(async () => {
-  const stored = (await chrome.storage.sync.get(RULES_KEY))[RULES_KEY];
-  // Rules saved by earlier versions carry additional fields (like `valid`), which are simply kept.
-  rules.value = typeof stored === 'string' && stored !== '' ? JSON.parse(stored) : defaultRules();
+  state.value = await Effect.runPromise(loadProfiles(chrome.storage.sync));
+  currentId.value = state.value.activeId;
 });
 
+function updateCurrent(f: (profile: Profile) => Profile) {
+  if (!state.value) return;
+  state.value = { ...state.value, profiles: state.value.profiles.map(profile => (profile.id === currentId.value ? f(profile) : profile)) };
+}
+
+const setRules = (rules: Rule) => updateCurrent(Optic.replace(rulesLens, rules));
+
+function add() {
+  if (!state.value) return;
+  const profile = newProfile(t('profile.defaultName'));
+  state.value = { ...state.value, profiles: [...state.value.profiles, profile] };
+  currentId.value = profile.id;
+}
+
+function duplicate() {
+  if (!state.value || !current.value) return;
+  const profile = newProfile(t('profile.copyOf', { name: current.value.name }), current.value.rules);
+  state.value = { ...state.value, profiles: [...state.value.profiles, profile] };
+  currentId.value = profile.id;
+}
+
+function remove() {
+  if (!state.value || !current.value || state.value.profiles.length < 2) return;
+  if (!confirm(t('profile.deleteConfirm', { name: current.value.name }))) return;
+
+  const profiles = state.value.profiles.filter(profile => profile.id !== currentId.value);
+  const activeId = state.value.activeId === currentId.value ? profiles[0].id : state.value.activeId;
+  state.value = { activeId, profiles };
+  currentId.value = activeId;
+}
+
 async function save() {
-  await chrome.storage.sync.set({ [RULES_KEY]: JSON.stringify(rules.value) });
+  if (!state.value) return;
+  // Blank names would make the profile impossible to tell apart in the lichess menu.
+  state.value = { ...state.value, profiles: state.value.profiles.map((profile, index) => ({ ...profile, name: profile.name.trim() || t('profile.unnamed', { n: index + 1 }) })) };
+  await Effect.runPromise(saveProfiles(chrome.storage.sync, state.value));
   saved.value = true;
   setTimeout(() => (saved.value = false), 2000);
 }
 
 async function reset() {
-  rules.value = defaultRules();
+  setRules(defaultRules());
   await save();
 }
 </script>
@@ -56,6 +123,39 @@ async function reset() {
   border-radius: 6px;
   padding: 8px;
   background: #8881;
+}
+
+.profiles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.info {
+  position: relative;
+  cursor: help;
+}
+
+.tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1;
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  white-space: pre;
+  font: inherit;
+  background: Canvas;
+  border: 1px solid #8886;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px #0003;
+}
+
+.info:hover .tooltip,
+.info:focus .tooltip {
+  display: block;
 }
 
 .group-header,

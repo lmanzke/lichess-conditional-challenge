@@ -54,6 +54,13 @@ OR
 
 The operations use logical operators and can be nested, allowing for complex decision trees.
 
+## Profiles
+
+Rules are organised in profiles: independent, named sets of rules (for example one for bullet and one for correspondence).
+Create, rename, duplicate and delete them on the options page and mark one as active with "Use this profile".
+As soon as there is more than one profile, a selector is shown in the challenge menu on lichess so you can switch the active profile quickly.
+Rules saved before profiles existed show up as the profile "Default".
+
 # Way of working & Caveats
 
 The extension works by random selecting any challenge and checking if it matches the criteria.
