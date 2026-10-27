@@ -1,6 +1,6 @@
 {
   "name": "team-challenge",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "A vue.js web extension that allows choosing by team",
   "author": "Lucas Manzke",
   "private": true,
@@ -27,6 +27,7 @@
     "@types/chrome": "^0.3.5",
     "@types/node": "^26.6.5",
     "@vitejs/plugin-vue": "^6.0.10",
+    "@vue/test-utils": "^2.5.1",
     "archiver": "^8.0.0",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.0.0",

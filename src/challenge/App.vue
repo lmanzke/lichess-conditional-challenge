@@ -10,17 +10,19 @@
         <pre class="tooltip">{{ describeRule(getActiveProfile(state).rules, t) }}</pre>
       </span>
     </label>
-    <button @click="run(acceptMatchingChallenge(container))">{{ t('challenge.acceptMatching') }}</button>
-    <button @click="run(declineUnmatchingChallenges(container))">{{ t('challenge.declineUnmatching') }}</button>
-    <button v-if="devMode" @click="run(logInfo(container))">Log info</button>
+    <button :disabled="busy" @click="run(acceptMatchingChallenge(container))">{{ t('challenge.acceptMatching') }}</button>
+    <button :disabled="busy" @click="declineAll">{{ t('challenge.declineUnmatching') }}</button>
+    <button v-if="devMode" @click="logInfoClicked">Log info</button>
+    <p v-if="status" class="status" :class="{ error: status.error }" role="status">{{ status.text }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { Effect } from 'effect';
+import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Lichess } from '@/challenge/lichess-api';
-import { acceptMatchingChallenge, declineUnmatchingChallenges, logInfo } from '@/challenge/actions';
+import { acceptMatchingChallenge, declineUnmatchingChallenges, logInfo, NoMatchingChallenge, type ActionResult } from '@/challenge/actions';
 import { getActiveProfile } from '@/challenge/profiles';
 import { useProfiles } from '@/challenge/useProfiles';
 import { describeRule } from '@/options/filters';
@@ -34,11 +36,41 @@ const { t } = useI18n();
 const devMode = import.meta.env.DEV;
 const { state, select } = useProfiles();
 
-const run = (effect: Effect.Effect<unknown, Error, Lichess>) =>
-  props
-    .runEffect(effect)
-    .then(result => console.log(result))
-    .catch((error: unknown) => console.log(error instanceof Error ? error.message : error));
+const busy = ref(false);
+const status = ref<{ text: string; error: boolean }>();
+let clearStatus: ReturnType<typeof setTimeout> | undefined;
+
+const show = (text: string, error = false) => {
+  status.value = { text, error };
+  clearTimeout(clearStatus);
+  clearStatus = setTimeout(() => (status.value = undefined), 8000);
+};
+
+const describeResult = (result: ActionResult) => (result.kind === 'accepted' ? t('challenge.accepted') : t('challenge.declined', { count: result.count }, result.count));
+
+const describeError = (error: unknown) => {
+  if (error instanceof NoMatchingChallenge) return t('challenge.noMatch');
+  console.error(error);
+  return t('challenge.failed', { reason: error instanceof Error ? error.message : String(error) });
+};
+
+const run = async (effect: Effect.Effect<ActionResult, Error, Lichess>) => {
+  busy.value = true;
+  try {
+    show(describeResult(await props.runEffect(effect)));
+  } catch (error) {
+    show(describeError(error), !(error instanceof NoMatchingChallenge));
+  } finally {
+    busy.value = false;
+  }
+};
+
+// Declining cannot be undone, so it has to be confirmed.
+const declineAll = () => {
+  if (confirm(t('challenge.confirmDecline'))) void run(declineUnmatchingChallenges(props.container));
+};
+
+const logInfoClicked = () => void props.runEffect(logInfo(props.container)).then(console.log, console.error);
 </script>
 
 <style>
@@ -86,6 +118,22 @@ const run = (effect: Effect.Effect<unknown, Error, Lichess>) =>
 .extender .info:hover .tooltip,
 .extender .info:focus .tooltip {
   display: block;
+}
+
+.extender .status {
+  margin: 0;
+  padding: 8px 12px;
+  color: #4a7c1f;
+  font-size: 0.9em;
+}
+
+.extender .status.error {
+  color: #c0392b;
+}
+
+.extender button:disabled {
+  opacity: 0.5;
+  cursor: progress;
 }
 
 .extender button {

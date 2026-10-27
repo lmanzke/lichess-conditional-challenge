@@ -8,29 +8,15 @@ import {
   LEGACY_RULES_KEY,
   loadProfiles,
   newProfile,
+  resolveActiveId,
   saveProfiles,
   setActiveProfile,
   type StorageArea,
 } from '@/challenge/profiles';
 import type { Rule } from '@/challenge/types';
+import { fakeStorage } from './helpers';
 
 const run = <A>(effect: Effect.Effect<A, Error>) => Effect.runPromise(effect);
-
-const fakeStorage = (initial: Record<string, unknown> = {}): StorageArea & { data: Record<string, unknown> } => {
-  const data = structuredClone(initial);
-  const keysOf = (keys?: string | string[] | null) => (keys == null ? Object.keys(data) : [keys].flat());
-  return {
-    data,
-    get: async keys =>
-      Object.fromEntries(
-        keysOf(keys)
-          .filter(key => key in data)
-          .map(key => [key, structuredClone(data[key])])
-      ),
-    set: async items => void Object.assign(data, structuredClone(items)),
-    remove: async keys => void keysOf(keys).forEach(key => delete data[key]),
-  };
-};
 
 const rules = (value: number): Rule => ({
   condition: 'AND',
@@ -165,5 +151,21 @@ describe('setActiveProfile writes', () => {
     await Effect.runPromise(setActiveProfile(storage, b.id));
     expect(set).toHaveBeenCalledTimes(1);
     expect(Object.keys(set.mock.calls[0][0])).toEqual([INDEX_KEY]);
+  });
+});
+
+describe('resolveActiveId', () => {
+  const ids = ['a', 'b', 'c'];
+
+  it('should keep a change made on lichess in the meantime', () => {
+    expect(resolveActiveId({ loaded: 'a', local: 'a', stored: 'b', ids })).toBe('b');
+  });
+
+  it('should prefer a change made on the page itself', () => {
+    expect(resolveActiveId({ loaded: 'a', local: 'c', stored: 'b', ids })).toBe('c');
+  });
+
+  it('should ignore a stored profile that does not exist (anymore)', () => {
+    expect(resolveActiveId({ loaded: 'a', local: 'a', stored: 'gone', ids })).toBe('a');
   });
 });

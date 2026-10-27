@@ -34,6 +34,11 @@ export const en = {
   challenge: {
     acceptMatching: 'Accept matching challenge',
     declineUnmatching: 'Decline all unmatching',
+    accepted: 'Accepted a challenge',
+    declined: 'No challenge declined | Declined 1 challenge | Declined {count} challenges',
+    noMatch: 'No matching challenge',
+    confirmDecline: 'Decline all challenges that do not match the rules of this profile? This cannot be undone.',
+    failed: 'Something went wrong: {reason}',
   },
   filters: {
     'team-name': 'Team Name',
@@ -117,6 +122,11 @@ export const de: Messages = {
   challenge: {
     acceptMatching: 'Passende Herausforderung annehmen',
     declineUnmatching: 'Alle unpassenden ablehnen',
+    accepted: 'Herausforderung angenommen',
+    declined: 'Keine Herausforderung abgelehnt | 1 Herausforderung abgelehnt | {count} Herausforderungen abgelehnt',
+    noMatch: 'Keine passende Herausforderung',
+    confirmDecline: 'Alle Herausforderungen ablehnen, die nicht zu den Regeln dieses Profils passen? Das kann nicht rückgängig gemacht werden.',
+    failed: 'Etwas ist schiefgelaufen: {reason}',
   },
   filters: {
     'team-name': 'Teamname',

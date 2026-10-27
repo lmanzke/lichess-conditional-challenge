@@ -1,7 +1,7 @@
 {
   "name": "Lichess Tweaked Challenge Accept",
   "description": "A vue.js web extension that allows choosing by challenges based on certain conditions",
-  "version": "2.0.0",
+  "version": "0.0.0",
   "manifest_version": 3,
   "minimum_chrome_version": "111",
   "icons": {
