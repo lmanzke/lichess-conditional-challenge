@@ -35,9 +35,9 @@ export class Lichess extends Context.Service<
         const currentUserId = yield* Effect.cached(getJson<DasherInfo>('/dasher', jsonHeaders).pipe(Effect.map(info => info.user.id)));
 
         return Lichess.of({
-          teamsOf: username => getJson<Team[]>(`/api/team/of/${username}`),
+          teamsOf: username => getJson<Team[]>(`/api/team/of/${encodeURIComponent(username)}`),
           currentUserId,
-          crosstable: (username, otherUserId) => getJson<Matchup>(`/api/crosstable/${username}/${otherUserId}?matchup=1`),
+          crosstable: (username, otherUserId) => getJson<Matchup>(`/api/crosstable/${encodeURIComponent(username)}/${encodeURIComponent(otherUserId)}?matchup=1`),
           incomingChallenges: getJson<{ in: LiChessChallenge[] }>('/challenge', jsonHeaders).pipe(Effect.map(response => response.in)),
         });
       })
