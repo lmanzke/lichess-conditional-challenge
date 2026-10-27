@@ -1,13 +1,15 @@
-import { Effect } from 'effect';
+import { Effect, Option } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
 import {
   affectsProfiles,
   defaultRules,
+  exportProfiles,
   getActiveProfile,
   INDEX_KEY,
   LEGACY_RULES_KEY,
   loadProfiles,
   newProfile,
+  parseImport,
   resolveActiveId,
   saveProfiles,
   setActiveProfile,
@@ -166,5 +168,35 @@ describe('resolveActiveId', () => {
 
   it('should ignore a stored profile that does not exist (anymore)', () => {
     expect(resolveActiveId({ loaded: 'a', local: 'a', stored: 'gone', ids })).toBe('a');
+  });
+});
+
+describe('export and import', () => {
+  it('should round trip profiles with new ids', () => {
+    const profiles = [newProfile('Bullet', rules(1)), newProfile('Correspondence', rules(2))];
+    const imported = Option.getOrThrow(parseImport(exportProfiles(profiles)));
+
+    expect(imported.map(({ name, rules }) => ({ name, rules }))).toEqual(profiles.map(({ name, rules }) => ({ name, rules })));
+    expect(imported.every((profile, index) => profile.id !== profiles[index].id)).toBe(true);
+  });
+
+  it('should reject anything that is not an export', () => {
+    for (const text of ['', 'not json', '{}', '[]', '{"format":"other","version":1,"profiles":[]}']) {
+      expect(Option.isNone(parseImport(text))).toBe(true);
+    }
+    expect(Option.isNone(parseImport(exportProfiles([])))).toBe(true);
+    expect(Option.isNone(parseImport(JSON.stringify({ format: 'lichess-conditional-challenge-profiles', version: 1, profiles: [{ name: 'x', rules: { rules: 5 } }] })))).toBe(true);
+  });
+
+  it('should complete rules and name blank profiles', () => {
+    const text = JSON.stringify({
+      format: 'lichess-conditional-challenge-profiles',
+      version: 1,
+      profiles: [{ name: ' ', rules: { condition: 'AND', rules: [{ id: 'rating', operator: 'greater', value: 1 }] } }],
+    });
+    const [profile] = Option.getOrThrow(parseImport(text));
+
+    expect(profile.name).toBe('Profile');
+    expect(profile.rules.rules[0]).toEqual({ id: 'rating', operator: 'greater', value: 1, silent: false, rules: [], condition: undefined });
   });
 });

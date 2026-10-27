@@ -60,11 +60,14 @@ Rules are organised in profiles: independent, named sets of rules (for example o
 Create, rename, duplicate and delete them on the options page and mark one as active with "Use this profile".
 As soon as there is more than one profile, a selector is shown in the challenge menu on lichess so you can switch the active profile quickly.
 Rules saved before profiles existed show up as the profile "Default".
+Profiles can be exported to a JSON file and imported again (for backups or to share them), and the editor warns about rules that cannot work, like an empty selection or a reversed range.
+A click on the toolbar icon opens the options.
 
 # Releasing
 
 Bump the version in `package.json`, merge to `main` and push a tag with the same version (`git tag v2.1.1 && git push origin v2.1.1`).
-The `Publish` workflow then checks and builds the extension, uploads and publishes it to the Chrome Web Store and creates a GitHub release with the zip.
+The `Publish` workflow then checks and builds the extension, uploads it to the Chrome Web Store as a draft and creates a GitHub release with the zip.
+The draft still has to be submitted for review by hand in the [Developer Dashboard](https://chrome.google.com/webstore/devconsole) ("Submit for review").
 
 One-time setup in the repository settings:
 

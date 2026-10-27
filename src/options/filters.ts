@@ -83,3 +83,27 @@ export const describeRule = (rule: Rule, t: Translate, depth = 0): string => {
   const head = `${indent}${depth === 0 ? '' : '• '}${t(rule.condition === 'OR' ? 'describe.anyOf' : 'describe.allOf')}:`;
   return [head, ...rule.rules.map(child => describeRule(child, t, depth + 1))].join('\n');
 };
+
+export type RuleIssue = 'emptyGroup' | 'noChoice' | 'emptyValue' | 'rangeReversed';
+
+/** What is wrong with this rule itself (not with its children). Such a rule is saved anyway, but can never match or never fail as intended. */
+export const ruleIssue = (rule: Rule): RuleIssue | undefined => {
+  if (rule.condition !== undefined) {
+    return rule.rules.length === 0 ? 'emptyGroup' : undefined;
+  }
+
+  const filter = findFilter(rule.id);
+  const value = rule.value;
+  if (filter.input === 'checkbox') {
+    return Array.isArray(value) && value.length > 0 ? undefined : 'noChoice';
+  }
+  if (rule.operator === 'between' && Array.isArray(value)) {
+    return Number(value[0]) > Number(value[1]) ? 'rangeReversed' : undefined;
+  }
+  if (filter.type === 'string' && typeof value === 'string') {
+    return value.split(';').some(part => part.trim() !== '') ? undefined : 'emptyValue';
+  }
+  return undefined;
+};
+
+export const countIssues = (rule: Rule): number => (ruleIssue(rule) ? 1 : 0) + rule.rules.reduce((sum, child) => sum + countIssues(child), 0);

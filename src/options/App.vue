@@ -21,25 +21,31 @@
       <button type="button" @click="add">{{ t('profile.new') }}</button>
       <button type="button" @click="duplicate">{{ t('profile.duplicate') }}</button>
       <button type="button" class="danger" :disabled="state.profiles.length < 2" @click="remove">{{ t('profile.delete') }}</button>
+      <button type="button" @click="exportAll">{{ t('profile.export') }}</button>
+      <button type="button" @click="fileInput?.click()">{{ t('profile.import') }}</button>
+      <input ref="fileInput" type="file" accept="application/json,.json" hidden @change="importFile" />
     </div>
+
+    <p v-if="importMessage" class="import-message" :class="{ warning: importFailed }" role="status">{{ importMessage }}</p>
 
     <RuleNode v-if="current" :key="current.id" :node="current.rules" root @change="setRules" />
 
     <div class="actions">
       <button type="button" class="primary" @click="save">{{ t('profile.save') }}</button>
       <button type="button" class="danger" @click="reset">{{ t('profile.reset') }}</button>
+      <span v-if="issueCount > 0" class="warning" role="status">⚠ {{ t('issues.summary', { count: issueCount }, issueCount) }}</span>
       <span v-if="saved" class="saved">{{ t('profile.saved') }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Effect, Optic } from 'effect';
+import { Effect, Optic, Option } from 'effect';
 import { useI18n } from 'vue-i18n';
 import { computed, onMounted, ref, shallowRef } from 'vue';
-import { defaultRules, loadProfiles, newProfile, resolveActiveId, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
+import { defaultRules, exportProfiles, loadProfiles, newProfile, parseImport, resolveActiveId, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
 import type { Rule } from '@/challenge/types';
-import { describeRule } from './filters';
+import { countIssues, describeRule } from './filters';
 import RuleNode from './RuleNode.vue';
 
 const { t } = useI18n();
@@ -48,11 +54,15 @@ const { t } = useI18n();
 const state = shallowRef<ProfileState>();
 const currentId = ref('');
 const saved = ref(false);
+const fileInput = ref<HTMLInputElement>();
+const importMessage = ref('');
+const importFailed = ref(false);
 // The active profile when the page was loaded or last saved, to tell if it was changed here.
 let loadedActiveId = '';
 
 const rulesLens = Optic.id<Profile>().key('rules');
 
+const issueCount = computed(() => (state.value ? state.value.profiles.reduce((sum, profile) => sum + countIssues(profile.rules), 0) : 0));
 const current = computed(() => state.value?.profiles.find(profile => profile.id === currentId.value));
 
 onMounted(async () => {
@@ -90,6 +100,36 @@ function remove() {
   const activeId = state.value.activeId === currentId.value ? profiles[0].id : state.value.activeId;
   state.value = { activeId, profiles };
   currentId.value = activeId;
+}
+
+function exportAll() {
+  if (!state.value) return;
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([exportProfiles(state.value.profiles)], { type: 'application/json' }));
+  link.download = 'lichess-challenge-profiles.json';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+const MAX_IMPORT_BYTES = 1_000_000;
+
+// Imported profiles are added to the existing ones and, like every other edit, only stored on "Save".
+async function importFile(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file || !state.value) return;
+
+  const imported = file.size <= MAX_IMPORT_BYTES ? parseImport(await file.text()) : Option.none();
+  importFailed.value = Option.isNone(imported);
+  if (Option.isNone(imported)) {
+    importMessage.value = t('profile.importFailed');
+    return;
+  }
+
+  state.value = { ...state.value, profiles: [...state.value.profiles, ...imported.value] };
+  currentId.value = imported.value[0].id;
+  importMessage.value = t('profile.imported', { count: imported.value.length }, imported.value.length);
 }
 
 async function save() {
@@ -213,6 +253,11 @@ button.primary {
 
 button.danger {
   color: #c0392b;
+}
+
+.warning {
+  color: #b9770e;
+  margin: 0;
 }
 
 .saved {

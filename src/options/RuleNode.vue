@@ -9,6 +9,7 @@
       <button type="button" @click="update({ rules: [...node.rules, newGroup()] })">{{ t('rule.addGroup') }}</button>
       <button v-if="!root" type="button" class="danger" @click="emit('remove')">{{ t('rule.deleteGroup') }}</button>
     </div>
+    <p v-if="issue" class="warning" role="alert">⚠ {{ t(`issues.${issue}`) }}</p>
     <div class="group-body">
       <RuleNode
         v-for="(child, index) in node.rules"
@@ -50,6 +51,7 @@
       @input="update({ value: ($event.target as HTMLInputElement).value })"
     />
 
+    <span v-if="issue" class="warning" role="alert">⚠ {{ t(`issues.${issue}`) }}</span>
     <label class="silent"><input type="checkbox" :checked="node.silent" @change="update({ silent: ($event.target as HTMLInputElement).checked })" /> {{ t('rule.silent') }}</label>
     <button type="button" class="danger" @click="emit('remove')">{{ t('rule.delete') }}</button>
   </div>
@@ -60,7 +62,7 @@ import { Optic } from 'effect';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Rule } from '@/challenge/types';
-import { defaultValue, filters, findFilter, newGroup, newRule, type FilterOperator } from './filters';
+import { defaultValue, filters, findFilter, newGroup, newRule, ruleIssue, type FilterOperator } from './filters';
 
 const { t } = useI18n();
 
@@ -68,6 +70,7 @@ const { t } = useI18n();
 const props = defineProps<{ node: Rule; root?: boolean }>();
 const emit = defineEmits<{ change: [node: Rule]; remove: [] }>();
 
+const issue = computed(() => ruleIssue(props.node));
 const isGroup = computed(() => props.node.condition !== undefined);
 const filter = computed(() => findFilter(props.node.id));
 const multiple = computed(() => props.node.operator === 'in' || props.node.operator === 'not_in');

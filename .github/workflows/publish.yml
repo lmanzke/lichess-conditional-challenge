@@ -1,6 +1,7 @@
 name: Publish
 
 # Releases are made by pushing a tag like v2.1.1 that matches the version in package.json.
+# The package is only uploaded as a draft to the Chrome Web Store, it is submitted for review by hand there.
 on:
   push:
     tags: ['v*']
@@ -12,8 +13,8 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -36,15 +37,15 @@ jobs:
     # Configure required reviewers on this environment to approve each release manually.
     environment: chrome-web-store
     steps:
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - uses: actions/download-artifact@v4
         with:
           name: extension-zip
           path: dist-zip
-      - name: Upload and publish
-        run: npx --yes chrome-webstore-upload-cli@4.0.2 --source dist-zip/*.zip
+      - name: Upload as a draft
+        run: npx --yes chrome-webstore-upload-cli@4.0.2 upload --source dist-zip/*.zip
         env:
           EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
           PUBLISHER_ID: ${{ secrets.CHROME_PUBLISHER_ID }}
