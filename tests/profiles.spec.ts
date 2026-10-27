@@ -1,6 +1,17 @@
 import { Effect } from 'effect';
-import { describe, expect, it } from 'vitest';
-import { affectsProfiles, getActiveProfile, INDEX_KEY, LEGACY_RULES_KEY, loadProfiles, newProfile, saveProfiles, setActiveProfile, type StorageArea } from '@/challenge/profiles';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  affectsProfiles,
+  defaultRules,
+  getActiveProfile,
+  INDEX_KEY,
+  LEGACY_RULES_KEY,
+  loadProfiles,
+  newProfile,
+  saveProfiles,
+  setActiveProfile,
+  type StorageArea,
+} from '@/challenge/profiles';
 import type { Rule } from '@/challenge/types';
 
 const run = <A>(effect: Effect.Effect<A, Error>) => Effect.runPromise(effect);
@@ -93,5 +104,66 @@ describe('affectsProfiles', () => {
     expect(affectsProfiles({ [INDEX_KEY]: {} })).toBe(true);
     expect(affectsProfiles({ 'lichessProfile:abc': {} })).toBe(true);
     expect(affectsProfiles({ other: {} })).toBe(false);
+  });
+});
+
+describe('rules saved by version 1.x', () => {
+  // jQuery QueryBuilder wrote groups without id/operator/value/silent and single rules without `rules`.
+  const legacyRules = {
+    condition: 'OR',
+    rules: [
+      { id: 'rating', field: 'rating', type: 'integer', input: 'text', operator: 'greater', value: 2000, silent: false },
+      { condition: 'AND', rules: [{ id: 'team-name', operator: 'equal', value: 'x', silent: true }] },
+    ],
+    valid: true,
+  };
+
+  it('should be migrated into a complete rule tree', async () => {
+    const state = await Effect.runPromise(loadProfiles(fakeStorage({ [LEGACY_RULES_KEY]: JSON.stringify(legacyRules) })));
+
+    expect(state.profiles[0].rules).toEqual({
+      condition: 'OR',
+      id: '',
+      operator: '',
+      value: '',
+      silent: false,
+      rules: [
+        { id: 'rating', operator: 'greater', value: 2000, silent: false, rules: [], condition: undefined },
+        {
+          condition: 'AND',
+          id: '',
+          operator: '',
+          value: '',
+          silent: false,
+          rules: [{ id: 'team-name', operator: 'equal', value: 'x', silent: true, rules: [], condition: undefined }],
+        },
+      ],
+    });
+  });
+
+  it('should keep later edits instead of migrating again on the next load', async () => {
+    const storage = fakeStorage({ [LEGACY_RULES_KEY]: JSON.stringify(legacyRules) });
+    const first = await Effect.runPromise(loadProfiles(storage));
+    await Effect.runPromise(saveProfiles(storage, { ...first, profiles: [{ ...first.profiles[0], name: 'Edited' }] }));
+
+    expect((await Effect.runPromise(loadProfiles(storage))).profiles.map(p => p.name)).toEqual(['Edited']);
+  });
+
+  it('should fall back to the default rules if the old rules are garbage', async () => {
+    const state = await Effect.runPromise(loadProfiles(fakeStorage({ [LEGACY_RULES_KEY]: '{"rules": 5' })));
+    expect(state.profiles[0].rules).toEqual(defaultRules());
+  });
+});
+
+describe('setActiveProfile writes', () => {
+  it('should only write the index', async () => {
+    const storage = fakeStorage();
+    const [a, b] = [newProfile('A'), newProfile('B')];
+    await Effect.runPromise(saveProfiles(storage, { activeId: a.id, profiles: [a, b] }));
+    const set = vi.spyOn(storage, 'set');
+
+    await Effect.runPromise(setActiveProfile(storage, b.id));
+    expect(set).toHaveBeenCalledTimes(1);
+    expect(Object.keys(set.mock.calls[0][0])).toEqual([INDEX_KEY]);
   });
 });

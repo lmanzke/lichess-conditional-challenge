@@ -19,23 +19,53 @@ type ProfileIndex = typeof ProfileIndexSchema.Type;
 
 const RuleValueSchema = Schema.Union([Schema.String, Schema.Number, Schema.Boolean, Schema.mutable(Schema.Array(Schema.String)), Schema.mutable(Schema.Array(Schema.Number))]);
 
-const RuleSchema: Schema.Codec<Rule> = Schema.Struct({
+/**
+ * Rules as they can be found in storage. Rules saved by 1.x came from jQuery QueryBuilder, where groups have no
+ * `id`, `operator`, `value` or `silent` and single rules have no `rules`, so everything is optional here and filled in by `normalizeRule`.
+ */
+interface StoredRule {
+  readonly condition?: string;
+  readonly rules?: ReadonlyArray<StoredRule>;
+  readonly id?: string;
+  readonly value?: Rule['value'];
+  readonly operator?: string;
+  readonly silent?: boolean;
+}
+
+const StoredRuleSchema: Schema.Codec<StoredRule> = Schema.Struct({
   // JSON drops `undefined`, so the key is missing in stored rules without a condition.
   condition: Schema.optional(Schema.String),
-  rules: Schema.Array(Schema.suspend((): Schema.Codec<Rule> => RuleSchema)),
-  id: Schema.String,
-  value: RuleValueSchema,
-  operator: Schema.String,
-  silent: Schema.Boolean,
+  rules: Schema.optional(Schema.Array(Schema.suspend((): Schema.Codec<StoredRule> => StoredRuleSchema))),
+  id: Schema.optional(Schema.String),
+  value: Schema.optional(RuleValueSchema),
+  operator: Schema.optional(Schema.String),
+  silent: Schema.optional(Schema.Boolean),
 });
 
-const ProfileSchema = Schema.Struct({ id: Schema.String, name: Schema.String, rules: RuleSchema });
+const normalizeRule = (stored: StoredRule): Rule => ({
+  condition: stored.condition,
+  rules: (stored.rules ?? []).map(normalizeRule),
+  id: stored.id ?? '',
+  value: stored.value ?? '',
+  operator: stored.operator ?? '',
+  silent: stored.silent ?? false,
+});
+
+const StoredProfileSchema = Schema.Struct({ id: Schema.String, name: Schema.String, rules: StoredRuleSchema });
 
 /** An independent, named set of rules. Exactly one profile is active, that is the one used on lichess. */
-export type Profile = typeof ProfileSchema.Type;
+export interface Profile {
+  readonly id: string;
+  readonly name: string;
+  readonly rules: Rule;
+}
+
+const decodeStoredRule = Schema.decodeUnknownOption(StoredRuleSchema);
+const decodeStoredProfile = Schema.decodeUnknownOption(StoredProfileSchema);
+const decodeProfile = (raw: unknown): Option.Option<Profile> =>
+  decodeStoredProfile(raw).pipe(Option.map(stored => ({ id: stored.id, name: stored.name, rules: normalizeRule(stored.rules) })));
 
 const decodeIndex = Schema.decodeUnknownOption(ProfileIndexSchema);
-const decodeProfile = Schema.decodeUnknownOption(ProfileSchema);
 
 /** Reads the profile index from raw storage contents. Malformed data counts as missing. */
 const readIndex = (stored: Record<string, unknown>): Option.Option<ProfileIndex> => Record.get(stored, INDEX_KEY).pipe(Option.flatMap(decodeIndex));
@@ -59,7 +89,7 @@ export const newProfile = (name: string, rules: Rule = defaultRules()): Profile 
 const parseLegacyRules = (raw: unknown): Rule | undefined => {
   if (typeof raw !== 'string' || raw === '') return undefined;
   try {
-    return JSON.parse(raw) as Rule;
+    return decodeStoredRule(JSON.parse(raw)).pipe(Option.map(normalizeRule), Option.getOrUndefined);
   } catch {
     return undefined;
   }
@@ -125,12 +155,15 @@ export const saveProfiles = (area: StorageArea, state: ProfileState): Effect.Eff
     }
   });
 
-/** Switches the active profile without touching the profiles themselves, so it cannot overwrite edits made elsewhere. */
+/**
+ * Switches the active profile by only writing the index (not the profiles), so it neither touches edits made
+ * elsewhere nor uses up sync write quota.
+ */
 export const setActiveProfile = (area: StorageArea, id: string): Effect.Effect<void, Error> =>
   Effect.gen(function* () {
     const state = yield* loadProfiles(area);
     if (state.profiles.some(p => p.id === id)) {
-      yield* saveProfiles(area, { ...state, activeId: id });
+      yield* storageEffect(() => area.set({ [INDEX_KEY]: { activeId: id, ids: state.profiles.map(p => p.id) } satisfies ProfileIndex }));
     }
   });
 
