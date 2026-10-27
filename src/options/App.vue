@@ -37,7 +37,7 @@
 import { Effect, Optic } from 'effect';
 import { useI18n } from 'vue-i18n';
 import { computed, onMounted, ref, shallowRef } from 'vue';
-import { defaultRules, loadProfiles, newProfile, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
+import { defaultRules, loadProfiles, newProfile, resolveActiveId, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
 import type { Rule } from '@/challenge/types';
 import { describeRule } from './filters';
 import RuleNode from './RuleNode.vue';
@@ -48,6 +48,8 @@ const { t } = useI18n();
 const state = shallowRef<ProfileState>();
 const currentId = ref('');
 const saved = ref(false);
+// The active profile when the page was loaded or last saved, to tell if it was changed here.
+let loadedActiveId = '';
 
 const rulesLens = Optic.id<Profile>().key('rules');
 
@@ -56,6 +58,7 @@ const current = computed(() => state.value?.profiles.find(profile => profile.id 
 onMounted(async () => {
   state.value = await Effect.runPromise(loadProfiles(chrome.storage.sync));
   currentId.value = state.value.activeId;
+  loadedActiveId = state.value.activeId;
 });
 
 function updateCurrent(f: (profile: Profile) => Profile) {
@@ -93,7 +96,11 @@ async function save() {
   if (!state.value) return;
   // Blank names would make the profile impossible to tell apart in the lichess menu.
   state.value = { ...state.value, profiles: state.value.profiles.map((profile, index) => ({ ...profile, name: profile.name.trim() || t('profile.unnamed', { n: index + 1 }) })) };
+  const stored = await Effect.runPromise(loadProfiles(chrome.storage.sync));
+  const activeId = resolveActiveId({ loaded: loadedActiveId, local: state.value.activeId, stored: stored.activeId, ids: state.value.profiles.map(profile => profile.id) });
+  state.value = { ...state.value, activeId };
   await Effect.runPromise(saveProfiles(chrome.storage.sync, state.value));
+  loadedActiveId = activeId;
   saved.value = true;
   setTimeout(() => (saved.value = false), 2000);
 }

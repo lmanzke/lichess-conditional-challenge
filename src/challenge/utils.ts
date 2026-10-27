@@ -1,10 +1,3 @@
-import { Option, Array } from 'effect';
-import type { NonEmptyArray } from 'effect/Array';
+import { Array, Option } from 'effect';
 
-export const ensureNonEmptyArray = <T>(arr1: T[]): Option.Option<Array.NonEmptyArray<T>> => {
-  if (arr1.length > 0) {
-    return Option.some(arr1 as NonEmptyArray<T>);
-  }
-
-  return Option.none();
-};
+export const ensureNonEmptyArray = <T>(items: T[]): Option.Option<Array.NonEmptyArray<T>> => (Array.isArrayNonEmpty(items) ? Option.some(items) : Option.none());

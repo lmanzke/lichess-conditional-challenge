@@ -169,5 +169,12 @@ export const setActiveProfile = (area: StorageArea, id: string): Effect.Effect<v
 
 export const getActiveProfile = (state: ProfileState): Profile => state.profiles.find(p => p.id === state.activeId) ?? state.profiles[0];
 
+/**
+ * Picks the active id when saving from a page that was loaded earlier. The active profile can be switched
+ * on lichess in the meantime, which must not be reverted by saving unless it was changed on this page too.
+ */
+export const resolveActiveId = ({ loaded, local, stored, ids }: { loaded: string; local: string; stored: string; ids: ReadonlyArray<string> }): string =>
+  local === loaded && ids.includes(stored) ? stored : local;
+
 /** True if the change event of the sync storage affects the profiles. */
 export const affectsProfiles = (changes: Record<string, unknown>): boolean => Object.keys(changes).some(key => key === INDEX_KEY || key.startsWith('lichessProfile:'));
