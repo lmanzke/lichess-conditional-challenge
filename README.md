@@ -61,6 +61,17 @@ Create, rename, duplicate and delete them on the options page and mark one as ac
 As soon as there is more than one profile, a selector is shown in the challenge menu on lichess so you can switch the active profile quickly.
 Rules saved before profiles existed show up as the profile "Default".
 
+# Releasing
+
+Bump the version in `package.json`, merge to `main` and push a tag with the same version (`git tag v2.1.1 && git push origin v2.1.1`).
+The `Publish` workflow then checks and builds the extension, uploads and publishes it to the Chrome Web Store and creates a GitHub release with the zip.
+
+One-time setup in the repository settings:
+
+1. Create the environment `chrome-web-store` (optionally with required reviewers, to approve each release by hand).
+2. Add these secrets to it: `CHROME_EXTENSION_ID`, `CHROME_PUBLISHER_ID`, `CHROME_CLIENT_ID`, `CHROME_CLIENT_SECRET`, `CHROME_REFRESH_TOKEN`.
+   How to get the OAuth values is described in [chrome-webstore-upload-keys](https://github.com/fregante/chrome-webstore-upload-keys).
+
 # Way of working & Caveats
 
 The extension works by random selecting any challenge and checking if it matches the criteria.
