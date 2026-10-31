@@ -15,6 +15,10 @@ export const en = {
     save: 'Save',
     saved: 'Saved',
     reset: 'Reset profile',
+    export: 'Export',
+    import: 'Import',
+    imported: 'Imported 1 profile, press Save to keep it | Imported {count} profiles, press Save to keep them',
+    importFailed: 'This file is not a valid profile export.',
   },
   rule: {
     conditions: { AND: 'AND', OR: 'OR' },
@@ -25,6 +29,13 @@ export const en = {
     silent: 'Silent',
     and: 'and',
     multiplePlaceholder: 'values separated by ;',
+  },
+  issues: {
+    emptyGroup: 'This group has no rules, so it never matches.',
+    noChoice: 'Nothing is selected, so this rule never matches.',
+    emptyValue: 'The value is empty.',
+    rangeReversed: 'The first number is larger than the second one, so this rule never matches.',
+    summary: 'No problems | 1 rule may not work as intended | {count} rules may not work as intended',
   },
   describe: {
     allOf: 'All of',
@@ -103,6 +114,10 @@ export const de: Messages = {
     save: 'Speichern',
     saved: 'Gespeichert',
     reset: 'Profil zurücksetzen',
+    export: 'Exportieren',
+    import: 'Importieren',
+    imported: '1 Profil importiert, zum Behalten auf Speichern klicken | {count} Profile importiert, zum Behalten auf Speichern klicken',
+    importFailed: 'Diese Datei ist kein gültiger Profil-Export.',
   },
   rule: {
     conditions: { AND: 'UND', OR: 'ODER' },
@@ -113,6 +128,13 @@ export const de: Messages = {
     silent: 'Still',
     and: 'und',
     multiplePlaceholder: 'Werte durch ; getrennt',
+  },
+  issues: {
+    emptyGroup: 'Diese Gruppe hat keine Regeln und trifft daher nie zu.',
+    noChoice: 'Nichts ausgewählt, die Regel trifft daher nie zu.',
+    emptyValue: 'Der Wert ist leer.',
+    rangeReversed: 'Die erste Zahl ist größer als die zweite, die Regel trifft daher nie zu.',
+    summary: 'Keine Probleme | 1 Regel funktioniert eventuell nicht wie gedacht | {count} Regeln funktionieren eventuell nicht wie gedacht',
   },
   describe: {
     allOf: 'Alle von',

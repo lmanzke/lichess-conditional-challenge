@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ChallengeApp from '@/challenge/App.vue';
 import OptionsApp from '@/options/App.vue';
 import { i18n } from '@/i18n';
-import { INDEX_KEY, loadProfiles, newProfile, saveProfiles } from '@/challenge/profiles';
+import { exportProfiles, INDEX_KEY, loadProfiles, newProfile, saveProfiles } from '@/challenge/profiles';
 import type { Lichess } from '@/challenge/lichess-api';
 import type { Rule } from '@/challenge/types';
 import { fakeStorage, lichessLayer } from './helpers';
@@ -133,5 +133,46 @@ describe('options page', () => {
     await flushPromises();
 
     expect((await Effect.runPromise(loadProfiles(storage))).activeId).toBe(b.id);
+  });
+
+  it('should warn about rules that cannot work, but still save them', async () => {
+    const empty = newProfile('Empty', { ...rating('greater', 0), rules: [] });
+    await Effect.runPromise(saveProfiles(storage, { activeId: empty.id, profiles: [empty] }));
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.group .warning').text()).toContain('no rules');
+    expect(wrapper.find('.actions .warning').text()).toContain('1 rule may not work');
+    await wrapper
+      .findAll('button')
+      .find(button => button.text() === 'Save')!
+      .trigger('click');
+    await flushPromises();
+    expect((await Effect.runPromise(loadProfiles(storage))).profiles[0].rules.rules).toEqual([]);
+  });
+
+  it('should import profiles from a file and only store them on save', async () => {
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+    const upload = async (text: string) => {
+      const input = wrapper.find('input[type=file]');
+      Object.defineProperty(input.element, 'files', { value: [new File([text], 'profiles.json')], configurable: true });
+      await input.trigger('change');
+      await flushPromises();
+    };
+
+    await upload('garbage');
+    expect(wrapper.find('.import-message').text()).toContain('not a valid');
+
+    await upload(exportProfiles([newProfile('Imported', rating('greater', 1900))]));
+    expect(wrapper.find('.import-message').text()).toContain('Imported 1 profile');
+    expect((await Effect.runPromise(loadProfiles(storage))).profiles.map(p => p.name)).not.toContain('Imported');
+
+    await wrapper
+      .findAll('button')
+      .find(button => button.text() === 'Save')!
+      .trigger('click');
+    await flushPromises();
+    expect((await Effect.runPromise(loadProfiles(storage))).profiles.map(p => p.name)).toEqual(['Default', 'Imported']);
   });
 });

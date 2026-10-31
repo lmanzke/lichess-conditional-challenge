@@ -70,6 +70,30 @@ const decodeIndex = Schema.decodeUnknownOption(ProfileIndexSchema);
 /** Reads the profile index from raw storage contents. Malformed data counts as missing. */
 const readIndex = (stored: Record<string, unknown>): Option.Option<ProfileIndex> => Record.get(stored, INDEX_KEY).pipe(Option.flatMap(decodeIndex));
 
+const EXPORT_FORMAT = 'lichess-conditional-challenge-profiles';
+const ExportSchema = Schema.Struct({
+  format: Schema.Literal(EXPORT_FORMAT),
+  version: Schema.Literal(1),
+  profiles: Schema.Array(Schema.Struct({ name: Schema.String, rules: StoredRuleSchema })),
+});
+const decodeExport = Schema.decodeUnknownOption(ExportSchema);
+
+/** The profiles as a JSON document for backups or sharing. */
+export const exportProfiles = (profiles: ReadonlyArray<Profile>): string =>
+  JSON.stringify({ format: EXPORT_FORMAT, version: 1, profiles: profiles.map(({ name, rules }) => ({ name, rules })) }, null, 2);
+
+/** Reads a document made by `exportProfiles` as new profiles (with new ids). Anything else is `None`. */
+export const parseImport = (text: string): Option.Option<ReadonlyArray<Profile>> => {
+  try {
+    return decodeExport(JSON.parse(text)).pipe(
+      Option.filter(document => document.profiles.length > 0),
+      Option.map(document => document.profiles.map(({ name, rules }) => newProfile(name.trim() || 'Profile', normalizeRule(rules))))
+    );
+  } catch {
+    return Option.none();
+  }
+};
+
 /** Before profiles existed, the rules were a single JSON string under this key. */
 export const LEGACY_RULES_KEY = 'lichessTeamRules';
 export const INDEX_KEY = 'lichessProfiles';

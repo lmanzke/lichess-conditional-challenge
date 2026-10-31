@@ -36,6 +36,14 @@ await build({
 
 await build({
   ...shared,
+  build: {
+    ...shared.build,
+    lib: { entry: 'src/background.ts', name: 'lichessConditionalChallengeBackground', formats: ['iife'], fileName: () => 'background.js' },
+  },
+});
+
+await build({
+  ...shared,
   root: root + 'src',
   base: './',
   build: {
