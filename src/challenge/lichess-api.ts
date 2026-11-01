@@ -23,6 +23,8 @@ export class Lichess extends Context.Service<
   Lichess,
   {
     teamsOf(username: string): Effect.Effect<Team[], HttpError>;
+    /** A single team by its id. Fails with status 404 if there is none. */
+    team(id: string): Effect.Effect<Team, HttpError>;
     /** The id of the logged-in user. */
     currentUserId: Effect.Effect<string, HttpError>;
     crosstable(username: string, otherUserId: string): Effect.Effect<Matchup, HttpError>;
@@ -55,6 +57,7 @@ export class Lichess extends Context.Service<
         });
 
       return Lichess.of({
+        team: id => cached(`team:${id}`, getJson<Team>(`/api/team/${encodeURIComponent(id)}`)),
         teamsOf: username => cached(`teams:${username}`, getJson<Team[]>(`/api/team/of/${encodeURIComponent(username)}`)),
         currentUserId: cached('me', getJson<DasherInfo>('/dasher', jsonHeaders).pipe(Effect.map(info => info.user.id))),
         crosstable: (username, otherUserId) =>

@@ -47,11 +47,35 @@
         </label>
       </div>
       <div v-else-if="node.operator === 'between'" class="range">
-        <input type="number" :value="range[0]" :aria-label="t('rule.from')" @input="setRange(0, ($event.target as HTMLInputElement).value)" />
+        <input
+          type="number"
+          :min="filter.min"
+          step="1"
+          :value="range[0]"
+          :aria-label="t('rule.from')"
+          @input="setRange(0, ($event.target as HTMLInputElement).value)"
+          @change="settleRange"
+        />
         <span>{{ t('rule.and') }}</span>
-        <input type="number" :value="range[1]" :aria-label="t('rule.to')" @input="setRange(1, ($event.target as HTMLInputElement).value)" />
+        <input
+          type="number"
+          :min="filter.min"
+          step="1"
+          :value="range[1]"
+          :aria-label="t('rule.to')"
+          @input="setRange(1, ($event.target as HTMLInputElement).value)"
+          @change="settleRange"
+        />
       </div>
-      <input v-else-if="filter.type === 'integer'" type="number" :value="node.value" @input="update({ value: Number(($event.target as HTMLInputElement).value) })" />
+      <input
+        v-else-if="filter.type === 'integer'"
+        type="number"
+        :min="filter.min"
+        step="1"
+        :value="node.value"
+        @input="update({ value: Number(($event.target as HTMLInputElement).value) })"
+        @change="update({ value: clampNumber(filter, Number(($event.target as HTMLInputElement).value)) })"
+      />
       <input
         v-else
         type="text"
@@ -59,6 +83,7 @@
         :placeholder="multiple ? t('rule.multiplePlaceholder') : ''"
         @input="update({ value: ($event.target as HTMLInputElement).value })"
       />
+      <TeamCheck v-if="node.id === 'team-name' && typeof node.value === 'string'" :value="node.value" @replace="replaceTeam" />
     </div>
 
     <label class="silent" :title="t('rule.silentHint')">
@@ -76,7 +101,8 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Rule } from '@/challenge/types';
 import AppIcon from './AppIcon.vue';
-import { defaultValue, filters, findFilter, newGroup, newRule, ruleIssue, type FilterOperator } from './filters';
+import TeamCheck from './TeamCheck.vue';
+import { clampNumber, defaultValue, filters, findFilter, newGroup, newRule, ruleIssue, type FilterOperator } from './filters';
 
 const { t } = useI18n();
 
@@ -103,6 +129,19 @@ function changeFilter(id: string) {
 
 function changeOperator(operator: FilterOperator) {
   update({ operator, value: defaultValue(filter.value, operator) });
+}
+
+// Typing may pass through values that are not allowed (like a minus sign), so a value is only settled once the field is left.
+function settleRange() {
+  update({ value: range.value.map(n => clampNumber(filter.value, Number(n))) });
+}
+
+function replaceTeam(from: string, to: string) {
+  const parts = String(props.node.value)
+    .split(';')
+    .map(part => (part.trim() === from ? to : part.trim()))
+    .filter(part => part !== '');
+  update({ value: [...new Set(parts)].join(';') });
 }
 
 function toggle(key: string) {

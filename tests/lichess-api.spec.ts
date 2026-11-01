@@ -74,4 +74,13 @@ describe('Lichess.layerFetch', () => {
     expect(result).toEqual([]);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
+
+  it('should request a single team and report a missing one with status 404', async () => {
+    const fetchImpl = vi.fn(async (url: string) => (url.endsWith('/lichess-swiss') ? json({ id: 'lichess-swiss' }) : json({}, 404)));
+
+    expect(await withLichess(fetchImpl as unknown as typeof fetch, lichess => lichess.team('lichess-swiss'))).toEqual({ id: 'lichess-swiss' });
+    await expect(withLichess(fetchImpl as unknown as typeof fetch, lichess => lichess.team('nope'))).rejects.toMatchObject({ status: 404 });
+    expect(fetchImpl).toHaveBeenCalledWith('https://lichess.test/api/team/lichess-swiss', expect.anything());
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
 });
