@@ -5,7 +5,7 @@ import { convertRule, encounterSpec, teamSpec } from '@/challenge/lichess';
 import { DeclineReason, type Rule, type Team } from '@/challenge/types';
 import { makeChallenge, runSpec } from './helpers';
 
-const team = (id: string): Team => ({ id, name: id, description: id, leader: { id: 'leader1', name: 'Leader 1' }, leaders: [], location: 'Berlin', nbMembers: 1, open: false });
+const team = (id: string): Team => ({ id, name: id, nbMembers: 1 });
 
 const rule = (overrides: Partial<Rule>): Rule => ({ condition: undefined, id: 'rating', operator: 'equal', rules: [], value: '', silent: false, ...overrides });
 
