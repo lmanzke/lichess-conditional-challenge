@@ -175,4 +175,51 @@ describe('options page', () => {
     await flushPromises();
     expect((await Effect.runPromise(loadProfiles(storage))).profiles.map(p => p.name)).toEqual(['Default', 'Imported']);
   });
+
+  it('should mark unsaved changes until they are saved', async () => {
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+    expect(wrapper.find('.status.dirty').exists()).toBe(false);
+
+    await wrapper.find('input[type=text]').setValue('Renamed');
+    expect(wrapper.find('.status.dirty').text()).toBe('Unsaved changes');
+
+    await wrapper
+      .findAll('button')
+      .find(button => button.text() === 'Save')!
+      .trigger('click');
+    await flushPromises();
+    expect(wrapper.find('.status.dirty').exists()).toBe(false);
+  });
+
+  it('should show a badge for the active profile and a button for the others', async () => {
+    const [a, b] = [newProfile('A'), newProfile('B')];
+    await Effect.runPromise(saveProfiles(storage, { activeId: a.id, profiles: [a, b] }));
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.badge').exists()).toBe(true);
+    await wrapper.find('select').setValue(b.id);
+    expect(wrapper.find('.badge').exists()).toBe(false);
+
+    await wrapper
+      .findAll('button')
+      .find(button => button.text() === 'Use this profile')!
+      .trigger('click');
+    expect(wrapper.find('.badge').exists()).toBe(true);
+  });
+
+  it('should preview the rules of the selected profile in words', async () => {
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.preview pre').text()).toBe('All of:\n  • Rating greater 0');
+  });
+
+  it('should label the icon buttons for screen readers', async () => {
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('button[aria-label="Delete"]').exists()).toBe(true);
+  });
 });

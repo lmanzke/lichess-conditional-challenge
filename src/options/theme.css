@@ -1,0 +1,169 @@
+/* Design tokens for the options page, with a dark variant that follows the system setting. */
+:root {
+  color-scheme: light dark;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #f0f2f5;
+  --border: #d5d9e0;
+  --text: #1f2430;
+  --muted: #5d6675;
+  --accent: #2f6fd6;
+  --accent-soft: #2f6fd61f;
+  --accent-contrast: #ffffff;
+  --danger: #c0392b;
+  --warn: #9a5b00;
+  --warn-bg: #f5a6231f;
+  --ok: #1f7a46;
+  --shadow: 0 1px 2px #0000001a, 0 4px 16px #00000014;
+  --depth-0: #2f6fd6;
+  --depth-1: #8a5cd6;
+  --depth-2: #d6822f;
+  --depth-3: #2fa89a;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c;
+    --surface: #1d2128;
+    --surface-2: #262b34;
+    --border: #353c48;
+    --text: #e7eaf0;
+    --muted: #9aa3b2;
+    --accent: #6ea2f5;
+    --accent-soft: #6ea2f52e;
+    --accent-contrast: #0e1726;
+    --danger: #ff8579;
+    --warn: #f2b24c;
+    --warn-bg: #f2b24c24;
+    --ok: #5fd08f;
+    --shadow: 0 1px 2px #00000066, 0 4px 16px #00000055;
+    --depth-0: #6ea2f5;
+    --depth-1: #b394f0;
+    --depth-2: #f0a35e;
+    --depth-3: #5ed1c3;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+button,
+select,
+input[type='text'],
+input[type='number'] {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  min-height: 34px;
+  box-sizing: border-box;
+}
+
+select {
+  padding-right: 6px;
+}
+
+input[type='text'],
+input[type='number'] {
+  min-width: 0;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+button:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  background: var(--accent);
+}
+
+button.ghost {
+  background: transparent;
+}
+
+button.icon {
+  padding: 6px;
+  min-width: 34px;
+}
+
+button.danger {
+  color: var(--danger);
+}
+
+button.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.icon-svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--warn);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

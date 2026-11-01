@@ -1,4 +1,5 @@
 import { createApp } from 'vue';
+import './theme.css';
 import App from './App.vue';
 import { i18n } from '@/i18n';
 

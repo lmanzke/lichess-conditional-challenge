@@ -1,4 +1,14 @@
 export const en = {
+  page: {
+    title: 'Challenge rules',
+    intro: 'Incoming challenges are accepted when they match the rules of the active profile. You can switch the profile in the challenge menu on lichess.',
+  },
+  rules: {
+    title: 'Rules of "{name}"',
+    preview: 'Preview',
+    previewHint: 'A challenge is accepted if this holds.',
+  },
+  status: { unsaved: 'Unsaved changes' },
   profile: {
     label: 'Profile',
     name: 'Name',
@@ -27,6 +37,12 @@ export const en = {
     deleteGroup: 'Delete group',
     delete: 'Delete',
     silent: 'Silent',
+    silentHint: 'A challenge that fails this rule is skipped instead of declined.',
+    condition: 'Combine the rules with',
+    field: 'Field',
+    operator: 'Operator',
+    from: 'From',
+    to: 'To',
     and: 'and',
     multiplePlaceholder: 'values separated by ;',
   },
@@ -98,6 +114,16 @@ type Shape<T> = { [K in keyof T]: T[K] extends string ? string : Shape<T[K]> };
 export type Messages = Shape<typeof en>;
 
 export const de: Messages = {
+  page: {
+    title: 'Regeln für Herausforderungen',
+    intro: 'Eingehende Herausforderungen werden angenommen, wenn sie zu den Regeln des aktiven Profils passen. Das Profil lässt sich im Herausforderungsmenü auf lichess wechseln.',
+  },
+  rules: {
+    title: 'Regeln von „{name}“',
+    preview: 'Vorschau',
+    previewHint: 'Eine Herausforderung wird angenommen, wenn dies zutrifft.',
+  },
+  status: { unsaved: 'Ungespeicherte Änderungen' },
   profile: {
     label: 'Profil',
     name: 'Name',
@@ -126,6 +152,12 @@ export const de: Messages = {
     deleteGroup: 'Gruppe löschen',
     delete: 'Löschen',
     silent: 'Still',
+    silentHint: 'Eine Herausforderung, die diese Regel nicht erfüllt, wird übersprungen statt abgelehnt.',
+    condition: 'Regeln verknüpfen mit',
+    field: 'Feld',
+    operator: 'Operator',
+    from: 'Von',
+    to: 'Bis',
     and: 'und',
     multiplePlaceholder: 'Werte durch ; getrennt',
   },

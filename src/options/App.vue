@@ -1,51 +1,75 @@
 <template>
-  <div class="options-container">
-    <div v-if="state && current" class="profiles">
-      <label>
-        {{ t('profile.label') }}
-        <select v-model="currentId">
-          <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.rules, t)">
-            {{ profile.name }}{{ profile.id === state.activeId ? ` (${t('profile.active')})` : '' }}
-          </option>
-        </select>
-      </label>
-      <span class="info" tabindex="0" :aria-label="t('profile.rulesInfo')">
-        ⓘ
-        <pre class="tooltip">{{ describeRule(current.rules, t) }}</pre>
-      </span>
-      <label>
-        {{ t('profile.name') }}
-        <input type="text" :value="current.name" @input="updateCurrent(p => ({ ...p, name: ($event.target as HTMLInputElement).value }))" />
-      </label>
-      <button type="button" :disabled="current.id === state.activeId" @click="state = { ...state, activeId: current.id }">{{ t('profile.use') }}</button>
-      <button type="button" @click="add">{{ t('profile.new') }}</button>
-      <button type="button" @click="duplicate">{{ t('profile.duplicate') }}</button>
-      <button type="button" class="danger" :disabled="state.profiles.length < 2" @click="remove">{{ t('profile.delete') }}</button>
-      <button type="button" @click="exportAll">{{ t('profile.export') }}</button>
-      <button type="button" @click="fileInput?.click()">{{ t('profile.import') }}</button>
-      <input ref="fileInput" type="file" accept="application/json,.json" hidden @change="importFile" />
-    </div>
+  <main class="page">
+    <header class="page-header">
+      <h1>{{ t('page.title') }}</h1>
+      <p class="intro">{{ t('page.intro') }}</p>
+    </header>
 
-    <p v-if="importMessage" class="import-message" :class="{ warning: importFailed }" role="status">{{ importMessage }}</p>
+    <section v-if="state && current" class="card profile-card" aria-labelledby="profile-heading">
+      <h2 id="profile-heading" class="sr-only">{{ t('profile.label') }}</h2>
+      <div class="profile-main">
+        <label class="field">
+          <span class="label">{{ t('profile.label') }}</span>
+          <select v-model="currentId">
+            <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id">
+              {{ profile.name }}{{ profile.id === state.activeId ? ` (${t('profile.active')})` : '' }}
+            </option>
+          </select>
+        </label>
+        <label class="field grow">
+          <span class="label">{{ t('profile.name') }}</span>
+          <input type="text" :value="current.name" @input="updateCurrent(p => ({ ...p, name: ($event.target as HTMLInputElement).value }))" />
+        </label>
+        <span v-if="current.id === state.activeId" class="badge"><AppIcon name="check" />{{ t('profile.active') }}</span>
+        <button v-else type="button" class="primary" @click="state = { ...state, activeId: current.id }">{{ t('profile.use') }}</button>
+      </div>
+      <div class="toolbar">
+        <button type="button" class="ghost" @click="add"><AppIcon name="plus" />{{ t('profile.new') }}</button>
+        <button type="button" class="ghost" @click="duplicate"><AppIcon name="copy" />{{ t('profile.duplicate') }}</button>
+        <button type="button" class="ghost" @click="exportAll"><AppIcon name="download" />{{ t('profile.export') }}</button>
+        <button type="button" class="ghost" @click="fileInput?.click()"><AppIcon name="upload" />{{ t('profile.import') }}</button>
+        <input ref="fileInput" type="file" accept="application/json,.json" hidden @change="importFile" />
+        <span class="spacer"></span>
+        <button type="button" class="icon danger" :disabled="state.profiles.length < 2" :aria-label="t('profile.delete')" :title="t('profile.delete')" @click="remove">
+          <AppIcon name="trash" />
+        </button>
+      </div>
+      <p v-if="importMessage" class="import-message" :class="{ warning: importFailed }" role="status">{{ importMessage }}</p>
+    </section>
 
-    <RuleNode v-if="current" :key="current.id" :node="current.rules" root @change="setRules" />
+    <section v-if="current" class="card" aria-labelledby="rules-heading">
+      <h2 id="rules-heading">{{ t('rules.title', { name: current.name }) }}</h2>
+      <RuleNode :key="current.id" :node="current.rules" root @change="setRules" />
+    </section>
 
-    <div class="actions">
+    <section v-if="current" class="card preview" aria-labelledby="preview-heading">
+      <h2 id="preview-heading">{{ t('rules.preview') }}</h2>
+      <p class="muted">{{ t('rules.previewHint') }}</p>
+      <pre>{{ describeRule(current.rules, t) }}</pre>
+    </section>
+
+    <div class="actions savebar">
+      <span v-if="dirty" class="status dirty"><span class="dot"></span>{{ t('status.unsaved') }}</span>
+      <span v-if="issueCount > 0" class="warning" role="status"><AppIcon name="warning" />{{ t('issues.summary', { count: issueCount }, issueCount) }}</span>
+      <span class="spacer"></span>
+      <button type="button" class="danger ghost" @click="reset">{{ t('profile.reset') }}</button>
       <button type="button" class="primary" @click="save">{{ t('profile.save') }}</button>
-      <button type="button" class="danger" @click="reset">{{ t('profile.reset') }}</button>
-      <span v-if="issueCount > 0" class="warning" role="status">⚠ {{ t('issues.summary', { count: issueCount }, issueCount) }}</span>
-      <span v-if="saved" class="saved">{{ t('profile.saved') }}</span>
     </div>
-  </div>
+
+    <Transition name="toast">
+      <div v-if="saved" class="toast saved" role="status"><AppIcon name="check" />{{ t('profile.saved') }}</div>
+    </Transition>
+  </main>
 </template>
 
 <script setup lang="ts">
 import { Effect, Optic, Option } from 'effect';
 import { useI18n } from 'vue-i18n';
-import { computed, onMounted, ref, shallowRef } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { defaultRules, exportProfiles, loadProfiles, newProfile, parseImport, resolveActiveId, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
 import type { Rule } from '@/challenge/types';
 import { countIssues, describeRule } from './filters';
+import AppIcon from './AppIcon.vue';
 import RuleNode from './RuleNode.vue';
 
 const { t } = useI18n();
@@ -59,6 +83,12 @@ const importMessage = ref('');
 const importFailed = ref(false);
 // The active profile when the page was loaded or last saved, to tell if it was changed here.
 let loadedActiveId = '';
+// What is in storage, to tell if there is anything to save.
+const savedSnapshot = ref('');
+const dirty = computed(() => state.value !== undefined && JSON.stringify(state.value) !== savedSnapshot.value);
+const warnOnLeave = (event: BeforeUnloadEvent) => {
+  if (dirty.value) event.preventDefault();
+};
 
 const rulesLens = Optic.id<Profile>().key('rules');
 
@@ -69,7 +99,11 @@ onMounted(async () => {
   state.value = await Effect.runPromise(loadProfiles(chrome.storage.sync));
   currentId.value = state.value.activeId;
   loadedActiveId = state.value.activeId;
+  savedSnapshot.value = JSON.stringify(state.value);
+  window.addEventListener('beforeunload', warnOnLeave);
 });
+
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnOnLeave));
 
 function updateCurrent(f: (profile: Profile) => Profile) {
   if (!state.value) return;
@@ -141,6 +175,7 @@ async function save() {
   state.value = { ...state.value, activeId };
   await Effect.runPromise(saveProfiles(chrome.storage.sync, state.value));
   loadedActiveId = activeId;
+  savedSnapshot.value = JSON.stringify(state.value);
   saved.value = true;
   setTimeout(() => (saved.value = false), 2000);
 }
@@ -152,115 +187,160 @@ async function reset() {
 </script>
 
 <style>
-:root {
-  color-scheme: light dark;
-  font-family: system-ui, sans-serif;
-}
-
-.options-container {
-  padding: 20px;
-  max-width: 1200px;
+.page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 20px 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.group {
-  border: 1px solid #8884;
-  border-radius: 6px;
-  padding: 8px;
-  background: #8881;
+.page-header h1 {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
 }
 
-.profiles {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 16px;
+.intro,
+.muted {
+  margin: 0;
+  color: var(--muted);
 }
 
-.info {
-  position: relative;
-  cursor: help;
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--shadow);
 }
 
-.tooltip {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 1;
-  margin: 4px 0 0;
-  padding: 8px 12px;
-  white-space: pre;
-  font: inherit;
-  background: Canvas;
-  border: 1px solid #8886;
-  border-radius: 6px;
-  box-shadow: 0 2px 8px #0003;
+.card h2 {
+  margin: 0 0 12px;
+  font-size: 1.1rem;
 }
 
-.info:hover .tooltip,
-.info:focus .tooltip {
-  display: block;
-}
-
-.group-header,
-.rule {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.group-body {
+.profile-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
-  padding-left: 16px;
+  gap: 12px;
 }
 
-.rule {
-  padding: 6px;
-  border: 1px solid #8883;
-  border-radius: 4px;
-}
-
-.choices {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-}
-
-.actions {
+.profile-main {
   display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field.grow {
+  flex: 1;
+  min-width: 180px;
+}
+
+.label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 
-button {
-  padding: 4px 10px;
-  cursor: pointer;
+.spacer {
+  flex: 1;
 }
 
-button.primary {
-  background: #3b7ddd;
-  color: #fff;
-  border: 1px solid #3b7ddd;
-  border-radius: 4px;
+.preview pre {
+  margin: 8px 0 0;
+  padding: 12px;
+  overflow: auto;
+  font:
+    0.9rem/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  background: var(--surface-2);
+  border-radius: 8px;
 }
 
-button.danger {
-  color: #c0392b;
+.savebar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 0 -20px;
+  padding: 12px 20px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--border);
 }
 
-.warning {
-  color: #b9770e;
-  margin: 0;
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
 }
 
-.saved {
-  color: #2e8b57;
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+
+.toast {
+  position: fixed;
+  right: 24px;
+  bottom: 84px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--ok);
+  color: var(--accent-contrast);
+  font-weight: 600;
+  box-shadow: var(--shadow);
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>
