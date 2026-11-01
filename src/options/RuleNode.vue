@@ -12,7 +12,7 @@
         <AppIcon name="trash" />
       </button>
     </div>
-    <p v-if="issue" class="warning" role="alert"><AppIcon name="warning" />{{ t(`issues.${issue}`) }}</p>
+    <p v-if="issue" class="warning" role="alert"><AppIcon name="warning" />{{ t(`issues.${issue}`, ratingRange) }}</p>
     <div class="group-body">
       <RuleNode
         v-for="(child, index) in node.rules"
@@ -91,7 +91,7 @@
       {{ t('rule.silent') }}
     </label>
     <button type="button" class="icon danger" :aria-label="t('rule.delete')" :title="t('rule.delete')" @click="emit('remove')"><AppIcon name="trash" /></button>
-    <p v-if="issue" class="warning issue" role="alert"><AppIcon name="warning" />{{ t(`issues.${issue}`) }}</p>
+    <p v-if="issue" class="warning issue" role="alert"><AppIcon name="warning" />{{ t(`issues.${issue}`, ratingRange) }}</p>
   </div>
 </template>
 
@@ -102,7 +102,7 @@ import { useI18n } from 'vue-i18n';
 import type { Rule } from '@/challenge/types';
 import AppIcon from './AppIcon.vue';
 import TeamCheck from './TeamCheck.vue';
-import { clampNumber, defaultValue, filters, findFilter, newGroup, newRule, ruleIssue, type FilterOperator } from './filters';
+import { RATING_RANGE, clampNumber, defaultValue, filters, findFilter, newGroup, newRule, ruleIssue, type FilterOperator } from './filters';
 
 const { t } = useI18n();
 
@@ -110,6 +110,7 @@ const { t } = useI18n();
 const props = withDefaults(defineProps<{ node: Rule; root?: boolean; depth?: number }>(), { depth: 0 });
 const emit = defineEmits<{ change: [node: Rule]; remove: [] }>();
 
+const ratingRange = RATING_RANGE;
 const issue = computed(() => ruleIssue(props.node));
 const isGroup = computed(() => props.node.condition !== undefined);
 const filter = computed(() => findFilter(props.node.id));

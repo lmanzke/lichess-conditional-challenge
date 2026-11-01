@@ -216,7 +216,7 @@ describe('options page', () => {
     const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
     await flushPromises();
 
-    expect(wrapper.find('.preview pre').text()).toBe('All of:\n  • Rating greater 0');
+    expect(wrapper.find('.preview pre').text()).toBe('All of:\n  • Rating greater 100');
   });
 
   it('should label the icon buttons for screen readers', async () => {
