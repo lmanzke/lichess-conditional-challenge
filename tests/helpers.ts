@@ -24,6 +24,7 @@ export const lichessLayer = (overrides: Partial<Lichess['Service']> = {}) =>
     Lichess,
     Lichess.of({
       teamsOf: failing('teamsOf'),
+      team: failing('team'),
       currentUserId: Effect.die('unexpected call to currentUserId'),
       crosstable: failing('crosstable'),
       incomingChallenges: Effect.die('unexpected call to incomingChallenges'),

@@ -7,6 +7,7 @@ import { i18n } from '@/i18n';
 import { exportProfiles, INDEX_KEY, loadProfiles, newProfile, saveProfiles } from '@/challenge/profiles';
 import type { Lichess } from '@/challenge/lichess-api';
 import type { Rule } from '@/challenge/types';
+import { checkTeam } from '@/options/lichess';
 import { fakeStorage, lichessLayer } from './helpers';
 
 const rating = (operator: string, value: number): Rule => ({
@@ -17,6 +18,8 @@ const rating = (operator: string, value: number): Rule => ({
   value: '',
   silent: false,
 });
+
+vi.mock('@/options/lichess', () => ({ checkTeam: vi.fn() }));
 
 let storage: ReturnType<typeof fakeStorage>;
 beforeEach(() => {
@@ -174,5 +177,114 @@ describe('options page', () => {
       .trigger('click');
     await flushPromises();
     expect((await Effect.runPromise(loadProfiles(storage))).profiles.map(p => p.name)).toEqual(['Default', 'Imported']);
+  });
+
+  it('should mark unsaved changes until they are saved', async () => {
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+    expect(wrapper.find('.status.dirty').exists()).toBe(false);
+
+    await wrapper.find('input[type=text]').setValue('Renamed');
+    expect(wrapper.find('.status.dirty').text()).toBe('Unsaved changes');
+
+    await wrapper
+      .findAll('button')
+      .find(button => button.text() === 'Save')!
+      .trigger('click');
+    await flushPromises();
+    expect(wrapper.find('.status.dirty').exists()).toBe(false);
+  });
+
+  it('should show a badge for the active profile and a button for the others', async () => {
+    const [a, b] = [newProfile('A'), newProfile('B')];
+    await Effect.runPromise(saveProfiles(storage, { activeId: a.id, profiles: [a, b] }));
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.badge').exists()).toBe(true);
+    await wrapper.find('select').setValue(b.id);
+    expect(wrapper.find('.badge').exists()).toBe(false);
+
+    await wrapper
+      .findAll('button')
+      .find(button => button.text() === 'Use this profile')!
+      .trigger('click');
+    expect(wrapper.find('.badge').exists()).toBe(true);
+  });
+
+  it('should preview the rules of the selected profile in words', async () => {
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('.preview pre').text()).toBe('All of:\n  • Rating greater 100');
+  });
+
+  it('should label the icon buttons for screen readers', async () => {
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+
+    expect(wrapper.find('button[aria-label="Delete"]').exists()).toBe(true);
+  });
+});
+
+describe('team check in the options page', () => {
+  const teamRule = (value: string): Rule => ({
+    condition: 'AND',
+    rules: [{ id: 'team-name', operator: 'in', value, silent: false, rules: [], condition: undefined }],
+    id: '',
+    operator: '',
+    value: '',
+    silent: false,
+  });
+
+  const mountWithTeam = async (value: string, lookup: typeof checkTeam) => {
+    vi.mocked(checkTeam).mockImplementation(lookup);
+    await Effect.runPromise(saveProfiles(storage, { activeId: 'p', profiles: [{ id: 'p', name: 'P', rules: teamRule(value) }] }));
+    const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
+    await flushPromises();
+    vi.advanceTimersByTime(700);
+    await flushPromises();
+    return wrapper;
+  };
+
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }));
+  afterEach(() => vi.useRealTimers());
+
+  it('should show whether each team exists', async () => {
+    const wrapper = await mountWithTeam('lichess-swiss;nope', async input => ({
+      input,
+      result: input === 'nope' ? { status: 'missing' } : { status: 'found', id: input, name: 'Lichess Swiss', members: 1234 },
+    }));
+
+    const lines = wrapper.findAll('.team-checks li').map(li => li.text());
+    expect(lines).toEqual(['Lichess Swiss, 1234 members', 'No team "nope" found on lichess']);
+  });
+
+  it('should offer to use the team id instead of the name', async () => {
+    const wrapper = await mountWithTeam('Lichess Swiss', async input => ({
+      input,
+      result: { status: 'missing' },
+      suggestion: { status: 'found', id: 'lichess-swiss', name: 'Lichess Swiss', members: 5 },
+    }));
+
+    expect(wrapper.find('.team-checks').text()).toContain('Did you mean "lichess-swiss"');
+    await wrapper.find('.team-checks button').trigger('click');
+    expect((wrapper.find('.value input[type=text]').element as HTMLInputElement).value).toBe('lichess-swiss');
+  });
+
+  it('should say so when lichess could not be asked', async () => {
+    const wrapper = await mountWithTeam('x', async input => ({ input, result: { status: 'unknown' } }));
+    expect(wrapper.find('.team-checks').text()).toContain('Could not check');
+  });
+
+  it('should not leave the same team twice after using a suggestion', async () => {
+    const wrapper = await mountWithTeam('lichess-swiss;Lichess Swiss', async input => ({
+      input,
+      result: input === 'lichess-swiss' ? { status: 'found', id: input, name: 'Lichess Swiss', members: 1 } : { status: 'missing' },
+      ...(input === 'lichess-swiss' ? {} : { suggestion: { status: 'found', id: 'lichess-swiss', name: 'Lichess Swiss', members: 1 } }),
+    }));
+
+    await wrapper.find('.team-checks button').trigger('click');
+    expect((wrapper.find('.value input[type=text]').element as HTMLInputElement).value).toBe('lichess-swiss');
   });
 });

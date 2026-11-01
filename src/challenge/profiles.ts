@@ -101,7 +101,7 @@ const profileKey = (id: string) => `lichessProfile:${id}`;
 
 export const defaultRules = (): Rule => ({
   condition: 'AND',
-  rules: [{ id: 'rating', operator: 'greater', value: 0, silent: false, rules: [], condition: undefined }],
+  rules: [{ id: 'rating', operator: 'greater', value: 100, silent: false, rules: [], condition: undefined }],
   id: '',
   operator: '',
   value: '',

@@ -19,6 +19,7 @@
     "service_worker": "background.js"
   },
   "permissions": ["storage"],
+  "host_permissions": ["https://lichess.org/*"],
   "options_ui": {
     "page": "options/options.html",
     "open_in_tab": true
