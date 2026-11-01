@@ -5,7 +5,7 @@ import { checkTeam, slugify } from '@/challenge/teams';
 import type { Team } from '@/challenge/types';
 import { lichessLayer } from './helpers';
 
-const team = (id: string, name: string): Team => ({ id, name, description: '', leader: { id: 'l', name: 'l' }, leaders: [], location: '', nbMembers: 42, open: true });
+const team = (id: string, name: string): Team => ({ id, name, nbMembers: 42 });
 
 /** A lichess that only knows these teams. */
 const knowing = (...teams: Team[]) =>

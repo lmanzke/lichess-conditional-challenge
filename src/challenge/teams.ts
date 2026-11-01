@@ -17,7 +17,7 @@ const lookup = (id: string): Effect.Effect<TeamLookup, never, Lichess> =>
   Effect.gen(function* () {
     const lichess = yield* Lichess;
     return yield* lichess.team(id).pipe(
-      Effect.map((team): TeamLookup => ({ status: 'found', id: team.id, name: team.name, members: team.nbMembers })),
+      Effect.map((team): TeamLookup => ({ status: 'found', id: team.id, name: team.name, members: team.nbMembers ?? 0 })),
       Effect.catch(error => Effect.succeed<TeamLookup>(error.status === 404 ? { status: 'missing' } : { status: 'unknown' }))
     );
   });

@@ -1,4 +1,5 @@
 import type { Effect } from 'effect';
+import type { Challenger, TimeControl, Variant } from '@/challenge/lichess-schemas';
 import type { Lichess } from '@/challenge/lichess-api';
 
 export enum DeclineReason {
@@ -41,21 +42,7 @@ export type UnsatisfyingChallengeInfo = UnsatisfiedSpecResult & { challenge: Cha
 
 export type Spec = (challenge: Challenge) => Effect.Effect<SpecResult, Error, Lichess>;
 
-export interface Challenger {
-  rating: number;
-  id: string;
-}
-
-export interface Variant {
-  key: string;
-}
-
-export interface TimeControl {
-  type: string;
-  limit?: number;
-  daysPerTurn?: number;
-  increment?: number;
-}
+export type { Challenger, DasherInfo, LiChessChallenge, Matchup, Team, TimeControl, Variant } from '@/challenge/lichess-schemas';
 
 export interface Challenge {
   id: string;
@@ -70,45 +57,9 @@ export interface Challenge {
   decline: (reason: DeclineReason) => void;
 }
 
-export interface Matchup {
-  nbGames: number;
-  users: Record<string, number>;
-  matchup?: Matchup;
-}
-
 export interface EncounterCount {
   total: number;
   today: number;
-}
-
-export interface LiChessChallenge {
-  id: string;
-  challenger: Challenger;
-  rated: boolean;
-  variant: Variant;
-  timeControl: TimeControl;
-  color: string;
-}
-
-export interface LichessUser {
-  id: string;
-  name: string;
-  patron?: boolean;
-}
-
-export interface DasherInfo {
-  user: LichessUser;
-}
-
-export interface Team {
-  id: string;
-  name: string;
-  description: string;
-  open: boolean;
-  leader: LichessUser;
-  leaders: LichessUser[];
-  nbMembers: number;
-  location: string;
 }
 
 export type Rule = {
