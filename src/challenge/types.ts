@@ -25,6 +25,7 @@ export enum RuleType {
   ENCOUNTERS_TODAY = 'encountersToday',
   RATING = 'rating',
   RATED = 'rated',
+  PROVISIONAL = 'provisional',
   VARIANT = 'variant',
   USER_ID = 'user-id',
   TIMECONTROL_TYPE = 'timecontrolType',

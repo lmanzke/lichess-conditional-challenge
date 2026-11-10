@@ -43,6 +43,20 @@ describe('convertRule', () => {
     expect(result).toEqual({ isSatisfied: false, silent: true, reason: DeclineReason.ONLY_RATED });
   });
 
+  it('should match challengers by their provisional rating, a missing flag meaning established', async () => {
+    const provisional = rule({ id: 'provisional', value: 1 });
+    const established = rule({ id: 'provisional', value: 0 });
+    const newcomer = makeChallenge({ challenger: { rating: 1500, id: 'new', provisional: true } });
+    const regular = makeChallenge({ challenger: { rating: 1500, id: 'old', provisional: false } });
+    const unknown = makeChallenge();
+
+    expect(await runSpec(convertRule(provisional), newcomer)).toEqual({ isSatisfied: true });
+    expect(await runSpec(convertRule(provisional), regular)).toMatchObject({ isSatisfied: false });
+    expect(await runSpec(convertRule(established), regular)).toEqual({ isSatisfied: true });
+    expect(await runSpec(convertRule(established), unknown)).toEqual({ isSatisfied: true });
+    expect(await runSpec(convertRule(established), newcomer)).toMatchObject({ isSatisfied: false });
+  });
+
   it('should decline variants depending on the allowed variants', async () => {
     const challenge = makeChallenge({ variant: { key: 'atomic' } });
     expect(await runSpec(convertRule(rule({ id: 'variant', operator: 'in', value: ['standard'] })), challenge)).toMatchObject({ reason: DeclineReason.NO_VARIANTS });
