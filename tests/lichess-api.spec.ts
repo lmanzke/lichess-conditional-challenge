@@ -28,7 +28,7 @@ describe('Lichess.layerFetch', () => {
     const challenges = await withLichess(fetchImpl as unknown as typeof fetch, lichess => lichess.incomingChallenges);
 
     expect(challenges).toEqual([
-      { id: 'abc', challenger: { id: 'bob', rating: 1800 }, rated: true, variant: { key: 'standard' }, timeControl: { type: 'clock', limit: 300, increment: 3 }, color: 'random' },
+      { id: 'abc', challenger: { id: 'bob', rating: 1800, provisional: false }, rated: true, variant: { key: 'standard' }, timeControl: { type: 'clock', limit: 300, increment: 3 }, color: 'random' },
     ]);
     expect(fetchImpl).toHaveBeenCalledWith(
       'https://lichess.test/challenge',
