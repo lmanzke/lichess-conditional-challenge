@@ -1,15 +1,17 @@
 import { Effect, Option } from 'effect';
 import { Lichess } from '@/challenge/lichess-api';
-import { compare, mapOperator, type Relation } from '@/challenge/operators';
+import { compare, mapRelation, type Relation } from '@/challenge/relations';
 import { combineSpecs } from '@/challenge/spec';
 import {
   DeclineReason,
-  RuleType,
+  Field,
+  isRuleGroup,
   type Challenge,
   type EncounterCount,
   type LiChessChallenge,
   type Matchup,
   type Rule,
+  type RuleNode,
   type RuleValue,
   type RuleValueType,
   type Spec,
@@ -117,31 +119,31 @@ export const getChallenges = (challengeContainerElement: HTMLElement): Effect.Ef
     });
   });
 
-const specFactories: Record<RuleType, SpecFactory> = {
-  [RuleType.TEAM_NAME]: teamSpec,
-  [RuleType.ENCOUNTERS]: encounterSpec,
-  [RuleType.ENCOUNTERS_TODAY]: encounterTodaySpec,
-  [RuleType.RATING]: ratingSpec,
-  [RuleType.RATED]: ratedSpec,
-  [RuleType.PROVISIONAL]: provisionalSpec,
-  [RuleType.VARIANT]: variantSpec,
-  [RuleType.USER_ID]: userIdSpec,
-  [RuleType.INCREMENT_SECONDS]: incrementSpec,
-  [RuleType.TIMECONTROL_TYPE]: challengeTypeSpec,
-  [RuleType.CHALLENGE_COLOR]: colorSpec,
-  [RuleType.LIMIT_SECONDS]: timeLimitSpec,
+const specFactories: Record<Field, SpecFactory> = {
+  [Field.TEAM_NAME]: teamSpec,
+  [Field.ENCOUNTERS]: encounterSpec,
+  [Field.ENCOUNTERS_TODAY]: encounterTodaySpec,
+  [Field.RATING]: ratingSpec,
+  [Field.RATED]: ratedSpec,
+  [Field.PROVISIONAL]: provisionalSpec,
+  [Field.VARIANT]: variantSpec,
+  [Field.USER_ID]: userIdSpec,
+  [Field.INCREMENT_SECONDS]: incrementSpec,
+  [Field.TIMECONTROL_TYPE]: challengeTypeSpec,
+  [Field.CHALLENGE_COLOR]: colorSpec,
+  [Field.LIMIT_SECONDS]: timeLimitSpec,
 };
 
-const isRuleType = (name: string): name is RuleType => name in specFactories;
+const isField = (name: string): name is Field => name in specFactories;
 
 const getDeclineHandler =
-  (value: RuleValue, ruleType: RuleType, silent: boolean): DeclinedHandler =>
+  (value: RuleValue, field: Field, silent: boolean): DeclinedHandler =>
   () => {
     const reason = ((): DeclineReason => {
-      if (ruleType === RuleType.RATED) {
+      if (field === Field.RATED) {
         return value ? DeclineReason.ONLY_RATED : DeclineReason.ONLY_UNRATED;
       }
-      if (ruleType !== RuleType.VARIANT || !Array.isArray(value) || value.length === 0) {
+      if (field !== Field.VARIANT || !Array.isArray(value) || value.length === 0) {
         return DeclineReason.RULE_FAILED;
       }
       return value.length === 1 && value[0] === 'standard' ? DeclineReason.NO_VARIANTS : DeclineReason.NOT_THIS_VARIANT;
@@ -150,11 +152,11 @@ const getDeclineHandler =
     return { silent, reason };
   };
 
-const mapRuleValue = (ruleType: RuleType, value: RuleValue): RuleValue => {
-  if (ruleType === RuleType.TEAM_NAME || ruleType === RuleType.USER_ID || ruleType === RuleType.VARIANT) {
+const mapRuleValue = (field: Field, value: RuleValue): RuleValue => {
+  if (field === Field.TEAM_NAME || field === Field.USER_ID || field === Field.VARIANT) {
     return value;
   }
-  if (ruleType === RuleType.RATED || ruleType === RuleType.PROVISIONAL) {
+  if (field === Field.RATED || field === Field.PROVISIONAL) {
     return !!value;
   }
   if (typeof value === 'boolean') {
@@ -169,10 +171,10 @@ const mapRuleValue = (ruleType: RuleType, value: RuleValue): RuleValue => {
 
 const mapSimpleRule = (rule: Rule): Spec => {
   // Unknown rule ids fall back to the team rule, as before.
-  const ruleType = isRuleType(rule.id) ? rule.id : RuleType.TEAM_NAME;
-  const value = mapRuleValue(ruleType, rule.value);
+  const field = isField(rule.field) ? rule.field : Field.TEAM_NAME;
+  const value = mapRuleValue(field, rule.value);
 
-  return specFactories[ruleType](value, mapOperator(rule.operator), getDeclineHandler(value, ruleType, rule.silent));
+  return specFactories[field](value, mapRelation(rule.relation), getDeclineHandler(value, field, rule.silent));
 };
 
-export const convertRule = (rule: Rule): Spec => (rule.condition !== undefined ? combineSpecs(rule.condition, rule.rules.map(convertRule)) : mapSimpleRule(rule));
+export const convertRule = (node: RuleNode): Spec => (isRuleGroup(node) ? combineSpecs(node.combinator, node.children.map(convertRule)) : mapSimpleRule(node));

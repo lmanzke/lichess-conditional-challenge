@@ -6,18 +6,11 @@ import OptionsApp from '@/options/App.vue';
 import { i18n } from '@/i18n';
 import { exportProfiles, INDEX_KEY, loadProfiles, newProfile, saveProfiles } from '@/challenge/profiles';
 import type { Lichess } from '@/challenge/lichess-api';
-import type { Rule } from '@/challenge/types';
+import type { RuleGroup } from '@/challenge/types';
 import { checkTeam } from '@/options/lichess';
 import { fakeStorage, lichessLayer } from './helpers';
 
-const rating = (operator: string, value: number): Rule => ({
-  condition: 'AND',
-  rules: [{ id: 'rating', operator, value, silent: false, rules: [], condition: undefined }],
-  id: '',
-  operator: '',
-  value: '',
-  silent: false,
-});
+const rating = (relation: string, value: number): RuleGroup => ({ combinator: 'AND', children: [{ field: 'rating', relation, value, silent: false }] });
 
 vi.mock('@/options/lichess', () => ({ checkTeam: vi.fn() }));
 
@@ -128,7 +121,7 @@ describe('options page', () => {
     const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
     await flushPromises();
 
-    storage.data[INDEX_KEY] = { activeId: b.id, ids: [a.id, b.id] };
+    storage.data[INDEX_KEY] = { version: 2, activeId: b.id, ids: [a.id, b.id] };
     await wrapper
       .findAll('button')
       .find(button => button.text() === 'Save')!
@@ -139,7 +132,7 @@ describe('options page', () => {
   });
 
   it('should warn about rules that cannot work, but still save them', async () => {
-    const empty = newProfile('Empty', { ...rating('greater', 0), rules: [] });
+    const empty = newProfile('Empty', { ...rating('greater', 0), children: [] });
     await Effect.runPromise(saveProfiles(storage, { activeId: empty.id, profiles: [empty] }));
     const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
     await flushPromises();
@@ -151,7 +144,7 @@ describe('options page', () => {
       .find(button => button.text() === 'Save')!
       .trigger('click');
     await flushPromises();
-    expect((await Effect.runPromise(loadProfiles(storage))).profiles[0].rules.rules).toEqual([]);
+    expect((await Effect.runPromise(loadProfiles(storage))).profiles[0].ruleTree).toMatchObject({ children: [] });
   });
 
   it('should import profiles from a file and only store them on save', async () => {
@@ -228,18 +221,11 @@ describe('options page', () => {
 });
 
 describe('team check in the options page', () => {
-  const teamRule = (value: string): Rule => ({
-    condition: 'AND',
-    rules: [{ id: 'team-name', operator: 'in', value, silent: false, rules: [], condition: undefined }],
-    id: '',
-    operator: '',
-    value: '',
-    silent: false,
-  });
+  const teamRule = (value: string): RuleGroup => ({ combinator: 'AND', children: [{ field: 'team-name', relation: 'in', value, silent: false }] });
 
   const mountWithTeam = async (value: string, lookup: typeof checkTeam) => {
     vi.mocked(checkTeam).mockImplementation(lookup);
-    await Effect.runPromise(saveProfiles(storage, { activeId: 'p', profiles: [{ id: 'p', name: 'P', rules: teamRule(value) }] }));
+    await Effect.runPromise(saveProfiles(storage, { activeId: 'p', profiles: [{ id: 'p', name: 'P', ruleTree: teamRule(value) }] }));
     const wrapper = mount(OptionsApp, { global: { plugins: [i18n] } });
     await flushPromises();
     vi.advanceTimersByTime(700);

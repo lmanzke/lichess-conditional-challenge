@@ -3,7 +3,7 @@ import { DeclineReason, type Rule } from '@/challenge/types';
 import { convertRule } from '@/challenge/lichess';
 import { makeChallenge, runSpec } from './helpers';
 
-const notInRule: Rule = { condition: undefined, id: 'user-id', operator: 'not_in', rules: [], value: 'user-1;user2', silent: false };
+const notInRule: Rule = { field: 'user-id', relation: 'not_in', value: 'user-1;user2', silent: false };
 
 describe('not in spec', () => {
   it('should return false for not in with blacklisted user', async () => {

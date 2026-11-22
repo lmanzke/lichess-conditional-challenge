@@ -39,13 +39,13 @@
 
     <section v-if="current" class="card" aria-labelledby="rules-heading">
       <h2 id="rules-heading">{{ t('rules.title', { name: current.name }) }}</h2>
-      <RuleNode :key="current.id" :node="current.rules" root @change="setRules" />
+      <RuleNode :key="current.id" :node="current.ruleTree" root @change="setRules" />
     </section>
 
     <section v-if="current" class="card preview" aria-labelledby="preview-heading">
       <h2 id="preview-heading">{{ t('rules.preview') }}</h2>
       <p class="muted">{{ t('rules.previewHint') }}</p>
-      <pre>{{ describeRule(current.rules, t) }}</pre>
+      <pre>{{ describeRule(current.ruleTree, t) }}</pre>
     </section>
 
     <div class="actions savebar">
@@ -67,8 +67,8 @@ import { Effect, Optic, Option } from 'effect';
 import { useI18n } from 'vue-i18n';
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { defaultRules, exportProfiles, loadProfiles, newProfile, parseImport, resolveActiveId, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
-import type { Rule } from '@/challenge/types';
-import { countIssues, describeRule } from './filters';
+import type { RuleNode as RuleNodeData } from '@/challenge/types';
+import { countIssues, describeRule } from './fields';
 import AppIcon from './AppIcon.vue';
 import RuleNode from './RuleNode.vue';
 
@@ -90,9 +90,9 @@ const warnOnLeave = (event: BeforeUnloadEvent) => {
   if (dirty.value) event.preventDefault();
 };
 
-const rulesLens = Optic.id<Profile>().key('rules');
+const ruleTreeLens = Optic.id<Profile>().key('ruleTree');
 
-const issueCount = computed(() => (state.value ? state.value.profiles.reduce((sum, profile) => sum + countIssues(profile.rules), 0) : 0));
+const issueCount = computed(() => (state.value ? state.value.profiles.reduce((sum, profile) => sum + countIssues(profile.ruleTree), 0) : 0));
 const current = computed(() => state.value?.profiles.find(profile => profile.id === currentId.value));
 
 onMounted(async () => {
@@ -110,7 +110,7 @@ function updateCurrent(f: (profile: Profile) => Profile) {
   state.value = { ...state.value, profiles: state.value.profiles.map(profile => (profile.id === currentId.value ? f(profile) : profile)) };
 }
 
-const setRules = (rules: Rule) => updateCurrent(Optic.replace(rulesLens, rules));
+const setRules = (ruleTree: RuleNodeData) => updateCurrent(Optic.replace(ruleTreeLens, ruleTree));
 
 function add() {
   if (!state.value) return;
@@ -121,7 +121,7 @@ function add() {
 
 function duplicate() {
   if (!state.value || !current.value) return;
-  const profile = newProfile(t('profile.copyOf', { name: current.value.name }), current.value.rules);
+  const profile = newProfile(t('profile.copyOf', { name: current.value.name }), current.value.ruleTree);
   state.value = { ...state.value, profiles: [...state.value.profiles, profile] };
   currentId.value = profile.id;
 }

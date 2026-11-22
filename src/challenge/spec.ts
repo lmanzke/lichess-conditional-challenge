@@ -1,5 +1,5 @@
 import { Effect } from 'effect';
-import { DeclineReason, type Spec } from '@/challenge/types';
+import { DeclineReason, type Combinator, type Spec } from '@/challenge/types';
 
 export const anySpec: Spec = () => Effect.succeed({ isSatisfied: true });
 export const noneSpec: Spec = () => Effect.succeed({ isSatisfied: false, silent: false, reason: DeclineReason.RULE_FAILED });
@@ -16,5 +16,5 @@ export const orSpec =
   challenge =>
     Effect.flatMap(first(challenge), result => (result.isSatisfied ? Effect.succeed(result) : second(challenge)));
 
-/** Folds specs with the combinator for `condition` ('AND', anything else is 'OR'). Empty AND is always satisfied, empty OR never. */
-export const combineSpecs = (condition: string, specs: Spec[]): Spec => (condition === 'AND' ? specs.reduce(andSpec, anySpec) : specs.reduce(orSpec, noneSpec));
+/** Folds specs with the combinator. Empty AND is always satisfied, empty OR never. */
+export const combineSpecs = (combinator: Combinator, specs: Spec[]): Spec => (combinator === 'AND' ? specs.reduce(andSpec, anySpec) : specs.reduce(orSpec, noneSpec));

@@ -40,16 +40,16 @@ export const en = {
     importFailed: 'This file is not a valid profile export.',
   },
   rule: {
-    conditions: { AND: 'AND', OR: 'OR' },
+    combinators: { AND: 'AND', OR: 'OR' },
     addRule: 'Add rule',
     addGroup: 'Add group',
     deleteGroup: 'Delete group',
     delete: 'Delete',
     silent: 'Silent',
     silentHint: 'A challenge that fails this rule is skipped instead of declined.',
-    condition: 'Combine the rules with',
+    combinator: 'Combine the rules with',
     field: 'Field',
-    operator: 'Operator',
+    relation: 'Operator',
     from: 'From',
     to: 'To',
     and: 'and',
@@ -79,7 +79,7 @@ export const en = {
     confirmDecline: 'Decline all challenges that do not match the rules of this profile? This cannot be undone.',
     failed: 'Something went wrong: {reason}',
   },
-  filters: {
+  fields: {
     'team-name': 'Team Name',
     'user-id': 'User Id',
     encounters: 'Number of past encounters',
@@ -93,7 +93,7 @@ export const en = {
     incrementSeconds: 'Increment in seconds',
     challengeColor: 'Your Assigned Color',
   },
-  operators: {
+  relations: {
     equal: 'equal',
     not_equal: 'not equal',
     in: 'in',
@@ -169,16 +169,16 @@ export const de: Messages = {
     importFailed: 'Diese Datei ist kein gültiger Profil-Export.',
   },
   rule: {
-    conditions: { AND: 'UND', OR: 'ODER' },
+    combinators: { AND: 'UND', OR: 'ODER' },
     addRule: 'Regel hinzufügen',
     addGroup: 'Gruppe hinzufügen',
     deleteGroup: 'Gruppe löschen',
     delete: 'Löschen',
     silent: 'Still',
     silentHint: 'Eine Herausforderung, die diese Regel nicht erfüllt, wird übersprungen statt abgelehnt.',
-    condition: 'Regeln verknüpfen mit',
+    combinator: 'Regeln verknüpfen mit',
     field: 'Feld',
-    operator: 'Operator',
+    relation: 'Operator',
     from: 'Von',
     to: 'Bis',
     and: 'und',
@@ -208,7 +208,7 @@ export const de: Messages = {
     confirmDecline: 'Alle Herausforderungen ablehnen, die nicht zu den Regeln dieses Profils passen? Das kann nicht rückgängig gemacht werden.',
     failed: 'Etwas ist schiefgelaufen: {reason}',
   },
-  filters: {
+  fields: {
     'team-name': 'Teamname',
     'user-id': 'Benutzer-ID',
     encounters: 'Anzahl früherer Begegnungen',
@@ -222,7 +222,7 @@ export const de: Messages = {
     incrementSeconds: 'Inkrement in Sekunden',
     challengeColor: 'Deine zugewiesene Farbe',
   },
-  operators: {
+  relations: {
     equal: 'gleich',
     not_equal: 'ungleich',
     in: 'in',
