@@ -34,6 +34,7 @@ export const filters: Filter[] = [
   { id: 'encountersToday', type: 'integer', min: 0, operators: numberOperators },
   { id: 'rating', type: 'integer', min: 0, plausible: RATING_RANGE, start: 1500, operators: numberOperatorsWithEqual },
   { id: 'rated', type: 'integer', input: 'radio', values: ['1', '0'], operators: ['equal'] },
+  { id: 'provisional', type: 'integer', input: 'radio', values: ['1', '0'], operators: ['equal'] },
   {
     id: 'variant',
     type: 'string',

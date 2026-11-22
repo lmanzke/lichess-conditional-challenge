@@ -64,6 +64,7 @@ const simpleSpec =
 
 export const ratingSpec = simpleSpec(challenge => challenge.challenger.rating);
 export const ratedSpec = simpleSpec(challenge => challenge.rated);
+export const provisionalSpec = simpleSpec(challenge => challenge.challenger.provisional ?? false);
 export const challengeTypeSpec = simpleSpec(challenge => challenge.timeControl.type);
 export const timeLimitSpec = simpleSpec(challenge => challenge.timeControl.limit || 0);
 export const incrementSpec = simpleSpec(challenge => challenge.timeControl.increment || 0);
@@ -122,6 +123,7 @@ const specFactories: Record<RuleType, SpecFactory> = {
   [RuleType.ENCOUNTERS_TODAY]: encounterTodaySpec,
   [RuleType.RATING]: ratingSpec,
   [RuleType.RATED]: ratedSpec,
+  [RuleType.PROVISIONAL]: provisionalSpec,
   [RuleType.VARIANT]: variantSpec,
   [RuleType.USER_ID]: userIdSpec,
   [RuleType.INCREMENT_SECONDS]: incrementSpec,
@@ -152,7 +154,7 @@ const mapRuleValue = (ruleType: RuleType, value: RuleValue): RuleValue => {
   if (ruleType === RuleType.TEAM_NAME || ruleType === RuleType.USER_ID || ruleType === RuleType.VARIANT) {
     return value;
   }
-  if (ruleType === RuleType.RATED) {
+  if (ruleType === RuleType.RATED || ruleType === RuleType.PROVISIONAL) {
     return !!value;
   }
   if (typeof value === 'boolean') {

@@ -3,7 +3,7 @@ import { Schema } from 'effect';
 // What this extension reads from the lichess API. Only the fields that are used are described, anything else is ignored.
 // A response that does not look like this is an error, instead of undefined values showing up somewhere in the rules later.
 
-export const ChallengerSchema = Schema.Struct({ id: Schema.String, rating: Schema.Number });
+export const ChallengerSchema = Schema.Struct({ id: Schema.String, rating: Schema.Number, provisional: Schema.optional(Schema.Boolean) });
 export type Challenger = typeof ChallengerSchema.Type;
 
 export const VariantSchema = Schema.Struct({ key: Schema.String });

@@ -86,6 +86,7 @@ export const en = {
     encountersToday: 'Number of encounters today',
     rating: 'Rating',
     rated: 'Rated',
+    provisional: 'Provisional rating',
     variant: 'Variant',
     timecontrolType: 'Timecontrol Type',
     limitSeconds: 'Timelimit in seconds',
@@ -105,6 +106,7 @@ export const en = {
   },
   values: {
     rated: { '1': 'Yes', '0': 'No' },
+    provisional: { '1': 'Yes', '0': 'No' },
     variant: {
       standard: 'Standard',
       chess960: 'Chess960',
@@ -213,6 +215,7 @@ export const de: Messages = {
     encountersToday: 'Anzahl Begegnungen heute',
     rating: 'Wertung',
     rated: 'Gewertet',
+    provisional: 'Vorläufige Wertung',
     variant: 'Variante',
     timecontrolType: 'Zeitkontrolle',
     limitSeconds: 'Zeitlimit in Sekunden',
@@ -232,6 +235,7 @@ export const de: Messages = {
   },
   values: {
     rated: { '1': 'Ja', '0': 'Nein' },
+    provisional: { '1': 'Ja', '0': 'Nein' },
     variant: {
       standard: 'Standard',
       chess960: 'Chess960',
