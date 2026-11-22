@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createI18n } from 'vue-i18n';
-import { describeRule, newGroup, newRule } from '@/options/fields';
+import { describeRule, newGroup, newRule } from '@/challenge/rule-tree';
 import { de, en } from '@/i18n/messages';
 
 const translator = (locale: 'en' | 'de') => {

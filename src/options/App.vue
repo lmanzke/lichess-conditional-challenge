@@ -66,9 +66,10 @@
 import { Effect, Optic, Option } from 'effect';
 import { useI18n } from 'vue-i18n';
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
-import { defaultRules, exportProfiles, loadProfiles, newProfile, parseImport, resolveActiveId, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
+import { chromeProfileStore } from '@/challenge/profile-store';
+import { defaultRules, exportProfiles, newProfile, parseImport, type Profile, type ProfileState } from '@/challenge/profiles';
 import type { RuleNode as RuleNodeData } from '@/challenge/types';
-import { countIssues, describeRule } from './fields';
+import { countIssues, describeRule } from '@/challenge/rule-tree';
 import AppIcon from './AppIcon.vue';
 import RuleNode from './RuleNode.vue';
 
@@ -81,8 +82,7 @@ const saved = ref(false);
 const fileInput = ref<HTMLInputElement>();
 const importMessage = ref('');
 const importFailed = ref(false);
-// The active profile when the page was loaded or last saved, to tell if it was changed here.
-let loadedActiveId = '';
+const store = chromeProfileStore();
 // What is in storage, to tell if there is anything to save.
 const savedSnapshot = ref('');
 const dirty = computed(() => state.value !== undefined && JSON.stringify(state.value) !== savedSnapshot.value);
@@ -96,9 +96,8 @@ const issueCount = computed(() => (state.value ? state.value.profiles.reduce((su
 const current = computed(() => state.value?.profiles.find(profile => profile.id === currentId.value));
 
 onMounted(async () => {
-  state.value = await Effect.runPromise(loadProfiles(chrome.storage.sync));
+  state.value = await Effect.runPromise(store.load);
   currentId.value = state.value.activeId;
-  loadedActiveId = state.value.activeId;
   savedSnapshot.value = JSON.stringify(state.value);
   window.addEventListener('beforeunload', warnOnLeave);
 });
@@ -170,11 +169,7 @@ async function save() {
   if (!state.value) return;
   // Blank names would make the profile impossible to tell apart in the lichess menu.
   state.value = { ...state.value, profiles: state.value.profiles.map((profile, index) => ({ ...profile, name: profile.name.trim() || t('profile.unnamed', { n: index + 1 }) })) };
-  const stored = await Effect.runPromise(loadProfiles(chrome.storage.sync));
-  const activeId = resolveActiveId({ loaded: loadedActiveId, local: state.value.activeId, stored: stored.activeId, ids: state.value.profiles.map(profile => profile.id) });
-  state.value = { ...state.value, activeId };
-  await Effect.runPromise(saveProfiles(chrome.storage.sync, state.value));
-  loadedActiveId = activeId;
+  state.value = await Effect.runPromise(store.save(state.value));
   savedSnapshot.value = JSON.stringify(state.value);
   saved.value = true;
   setTimeout(() => (saved.value = false), 2000);

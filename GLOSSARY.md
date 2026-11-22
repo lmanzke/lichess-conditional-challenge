@@ -10,6 +10,10 @@ A browser extension that lets a lichess player accept or decline incoming challe
 An incoming offer from another player to play a game, shown in the player's challenge list.
 _Avoid_: Invitation, request
 
+**Inbox**:
+The Challenges a player has received and not yet answered, which can be accepted or declined.
+_Avoid_: Queue, list
+
 **Challenger**:
 The player who sent a Challenge.
 _Avoid_: Opponent, user
@@ -72,6 +76,10 @@ _Avoid_: Mismatch, rejection
 **Silent failure**:
 A Failure decided by a Silent rule; the Challenge is skipped rather than declined. Which Rule decides is determined by evaluation order: the first failing Rule in an AND, the last Rule in an OR.
 _Avoid_: Soft fail, ignored challenge
+
+**Verdict**:
+What is done with a Challenge after judging it: accept it (Match), decline it (Failure), or leave it alone (Silent failure).
+_Avoid_: Decision, result
 
 **Decline reason**:
 The reason lichess is given when a Challenge is declined.

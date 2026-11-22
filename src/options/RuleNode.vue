@@ -5,13 +5,13 @@
         class="pill"
         :value="groupNode.combinator"
         :aria-label="t('rule.combinator')"
-        @change="updateGroup({ combinator: ($event.target as HTMLSelectElement).value as Combinator })"
+        @change="editGroup(group => setCombinator(group, ($event.target as HTMLSelectElement).value as Combinator))"
       >
         <option value="AND">{{ t('rule.combinators.AND') }}</option>
         <option value="OR">{{ t('rule.combinators.OR') }}</option>
       </select>
-      <button type="button" class="ghost" @click="updateGroup({ children: [...groupNode.children, newRule()] })"><AppIcon name="plus" />{{ t('rule.addRule') }}</button>
-      <button type="button" class="ghost" @click="updateGroup({ children: [...groupNode.children, newGroup()] })"><AppIcon name="group" />{{ t('rule.addGroup') }}</button>
+      <button type="button" class="ghost" @click="editGroup(group => addChild(group, newRule()))"><AppIcon name="plus" />{{ t('rule.addRule') }}</button>
+      <button type="button" class="ghost" @click="editGroup(group => addChild(group, newGroup()))"><AppIcon name="group" />{{ t('rule.addGroup') }}</button>
       <span class="spacer"></span>
       <button v-if="!root" type="button" class="icon danger" :aria-label="t('rule.deleteGroup')" :title="t('rule.deleteGroup')" @click="emit('remove')">
         <AppIcon name="trash" />
@@ -24,8 +24,8 @@
         :key="index"
         :node="child"
         :depth="depth + 1"
-        @change="next => emit('change', replaceChild(index, next))"
-        @remove="updateGroup({ children: groupNode.children.filter((_, i) => i !== index) })"
+        @change="next => editGroup(group => replaceChild(group, index, next))"
+        @remove="editGroup(group => removeChild(group, index))"
       />
     </div>
   </div>
@@ -41,9 +41,7 @@
     <div class="value">
       <div v-if="field.input === 'radio'" class="chips" role="radiogroup">
         <label v-for="key in field.values" :key="key" class="chip" :class="{ on: ruleNode.value === Number(key) }">
-          <input class="sr-only" type="radio" :name="radioName" :checked="ruleNode.value === Number(key)" @change="update({ value: Number(key) })" />{{
-            t(`values.${field.id}.${key}`)
-          }}
+          <input class="sr-only" type="radio" :name="radioName" :checked="ruleNode.value === Number(key)" @change="setRuleValue(Number(key))" />{{ t(`values.${field.id}.${key}`) }}
         </label>
       </div>
       <div v-else-if="field.input === 'checkbox'" class="chips">
@@ -78,21 +76,21 @@
         :min="field.min"
         step="1"
         :value="ruleNode.value"
-        @input="update({ value: Number(($event.target as HTMLInputElement).value) })"
-        @change="update({ value: clampNumber(field, Number(($event.target as HTMLInputElement).value)) })"
+        @input="setRuleValue(Number(($event.target as HTMLInputElement).value))"
+        @change="setRuleValue(clampNumber(field, Number(($event.target as HTMLInputElement).value)))"
       />
       <input
         v-else
         type="text"
         :value="ruleNode.value"
         :placeholder="multiple ? t('rule.multiplePlaceholder') : ''"
-        @input="update({ value: ($event.target as HTMLInputElement).value })"
+        @input="setRuleValue(($event.target as HTMLInputElement).value)"
       />
       <TeamCheck v-if="ruleNode.field === 'team-name' && typeof ruleNode.value === 'string'" :value="ruleNode.value" @replace="replaceTeam" />
     </div>
 
     <label class="silent" :title="t('rule.silentHint')">
-      <input type="checkbox" :checked="ruleNode.silent" @change="update({ silent: ($event.target as HTMLInputElement).checked })" />
+      <input type="checkbox" :checked="ruleNode.silent" @change="edit(rule => setSilent(rule, ($event.target as HTMLInputElement).checked))" />
       {{ t('rule.silent') }}
     </label>
     <button type="button" class="icon danger" :aria-label="t('rule.delete')" :title="t('rule.delete')" @click="emit('remove')"><AppIcon name="trash" /></button>
@@ -101,18 +99,31 @@
 </template>
 
 <script setup lang="ts">
-import { Optic } from 'effect';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { RATING_RANGE, clampNumber, fields, findField } from '@/challenge/fields';
 import type { RelationCode } from '@/challenge/relations';
-import { isRuleGroup, type Combinator, type Rule, type RuleGroup, type RuleNode as RuleNodeData } from '@/challenge/types';
+import {
+  addChild,
+  newGroup,
+  newRule,
+  removeChild,
+  replaceChild,
+  ruleIssue,
+  setCombinator,
+  setField,
+  setRelation,
+  setSilent,
+  setValue,
+  settleRange as settleRangeOf,
+} from '@/challenge/rule-tree';
+import { isRuleGroup, type Combinator, type Rule, type RuleGroup, type RuleNode as RuleNodeData, type RuleValue } from '@/challenge/types';
 import AppIcon from './AppIcon.vue';
 import TeamCheck from './TeamCheck.vue';
-import { RATING_RANGE, clampNumber, defaultValue, fields, findField, newGroup, newRule, ruleIssue } from './fields';
 
 const { t } = useI18n();
 
-// Nodes are immutable: every edit emits the changed node and the parent swaps it in, up to the root.
+// The edits are operations of the rule tree module: every edit emits the changed node and the parent swaps it in, up to the root.
 const props = withDefaults(defineProps<{ node: RuleNodeData; root?: boolean; depth?: number }>(), { depth: 0 });
 const emit = defineEmits<{ change: [node: RuleNodeData]; remove: [] }>();
 
@@ -126,41 +137,30 @@ const radioName = `rule-${Math.random().toString(36).slice(2)}`;
 const range = computed(() => (Array.isArray(ruleNode.value?.value) ? (ruleNode.value.value as unknown[]) : [0, 0]));
 const selected = computed(() => (Array.isArray(ruleNode.value?.value) ? (ruleNode.value.value as string[]) : []));
 
-const childAt = (index: number) => Optic.id<RuleGroup>().key('children').at(index);
-const replaceChild = (index: number, next: RuleNodeData): RuleNodeData => (groupNode.value ? Optic.replace(childAt(index), next)(groupNode.value) : next);
+const editGroup = (edit: (group: RuleGroup) => RuleNodeData) => groupNode.value && emit('change', edit(groupNode.value));
+const edit = (change: (rule: Rule) => Rule) => ruleNode.value && emit('change', change(ruleNode.value));
+const setRuleValue = (value: RuleValue) => edit(rule => setValue(rule, value));
 
-const updateGroup = (patch: Partial<RuleGroup>) => groupNode.value && emit('change', { ...groupNode.value, ...patch });
-const update = (patch: Partial<Rule>) => ruleNode.value && emit('change', { ...ruleNode.value, ...patch });
-
-function changeField(id: string) {
-  emit('change', { ...newRule(id), silent: ruleNode.value?.silent ?? false });
-}
-
-function changeRelation(relation: RelationCode) {
-  update({ relation, value: defaultValue(field.value, relation) });
-}
+const changeField = (id: string) => edit(rule => setField(rule, id));
+const changeRelation = (relation: RelationCode) => edit(rule => setRelation(rule, relation));
 
 // Typing may pass through values that are not allowed (like a minus sign), so a value is only settled once the field is left.
-function settleRange() {
-  update({ value: range.value.map(n => clampNumber(field.value, Number(n))) });
-}
+const settleRange = () => edit(rule => settleRangeOf(rule, range.value));
 
 function replaceTeam(from: string, to: string) {
   const parts = String(ruleNode.value?.value)
     .split(';')
     .map(part => (part.trim() === from ? to : part.trim()))
     .filter(part => part !== '');
-  update({ value: [...new Set(parts)].join(';') });
+  setRuleValue([...new Set(parts)].join(';'));
 }
 
-function toggle(key: string) {
-  update({ value: selected.value.includes(key) ? selected.value.filter(k => k !== key) : [...selected.value, key] });
-}
+const toggle = (key: string) => setRuleValue(selected.value.includes(key) ? selected.value.filter(k => k !== key) : [...selected.value, key]);
 
 function setRange(index: 0 | 1, raw: string) {
   const next = [...range.value] as number[];
   next[index] = Number(raw);
-  update({ value: next });
+  setRuleValue(next);
 }
 </script>
 

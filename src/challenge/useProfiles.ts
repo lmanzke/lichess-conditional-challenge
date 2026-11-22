@@ -1,27 +1,27 @@
 import { Effect } from 'effect';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import { affectsProfiles, loadProfiles, setActiveProfile, type ProfileState } from '@/challenge/profiles';
+import { chromeProfileStore } from '@/challenge/profile-store';
+import type { ProfileState } from '@/challenge/profiles';
 
 /** The profiles in sync storage, kept up to date when they change in another tab or on the options page. */
 export const useProfiles = () => {
+  const store = chromeProfileStore();
   const state = ref<ProfileState>();
+  let unsubscribe: (() => void) | undefined;
 
   const reload = async () => {
-    state.value = await Effect.runPromise(loadProfiles(chrome.storage.sync));
-  };
-  const onChanged = (changes: Record<string, unknown>, area: string) => {
-    if (area === 'sync' && affectsProfiles(changes)) void reload();
+    state.value = await Effect.runPromise(store.load);
   };
   const select = async (id: string) => {
-    await Effect.runPromise(setActiveProfile(chrome.storage.sync, id));
+    await Effect.runPromise(store.setActive(id));
     await reload();
   };
 
   onMounted(() => {
     void reload();
-    chrome.storage.onChanged.addListener(onChanged);
+    unsubscribe = store.subscribe(() => void reload());
   });
-  onBeforeUnmount(() => chrome.storage.onChanged.removeListener(onChanged));
+  onBeforeUnmount(() => unsubscribe?.());
 
   return { state, select };
 };

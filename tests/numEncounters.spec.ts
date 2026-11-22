@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractNumEncounters } from '@/challenge/lichess';
+import { extractNumEncounters } from '@/challenge/fields';
 
 describe('extractNumEncounters', () => {
   it('should use the total and the matchup of the day', () => {

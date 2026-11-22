@@ -1,7 +1,6 @@
 import { Effect, Option } from 'effect';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  affectsProfiles,
   defaultRules,
   exportProfiles,
   FORMAT_VERSION,
@@ -13,9 +12,7 @@ import {
   OLD_INDEX_KEY,
   oldProfileKey,
   parseImport,
-  resolveActiveId,
   saveProfiles,
-  setActiveProfile,
 } from '@/challenge/profiles';
 import type { RuleGroup, RuleNode } from '@/challenge/types';
 import { fakeStorage } from './helpers';
@@ -78,29 +75,6 @@ describe('saveProfiles', () => {
   });
 });
 
-describe('setActiveProfile', () => {
-  it('should only change the active profile', async () => {
-    const storage = fakeStorage();
-    const [a, b] = [newProfile('A', rules(1)), newProfile('B', rules(2))];
-    await run(saveProfiles(storage, { activeId: a.id, profiles: [a, b] }));
-
-    await run(setActiveProfile(storage, b.id));
-    expect(await run(loadProfiles(storage))).toEqual({ activeId: b.id, profiles: [a, b] });
-
-    await run(setActiveProfile(storage, 'unknown'));
-    expect((await run(loadProfiles(storage))).activeId).toBe(b.id);
-  });
-});
-
-describe('affectsProfiles', () => {
-  it('should react to the index and to profiles only', () => {
-    expect(affectsProfiles({ [INDEX_KEY]: {} })).toBe(true);
-    expect(affectsProfiles({ 'lichessProfile2:abc': {} })).toBe(true);
-    expect(affectsProfiles({ 'lichessProfile:abc': {} })).toBe(false);
-    expect(affectsProfiles({ other: {} })).toBe(false);
-  });
-});
-
 describe('rules saved by version 1.x', () => {
   // jQuery QueryBuilder wrote groups without id/operator/value/silent and single rules without `rules`.
   const legacyRules = {
@@ -135,35 +109,6 @@ describe('rules saved by version 1.x', () => {
   it('should fall back to the default rules if the old rules are garbage', async () => {
     const state = await Effect.runPromise(loadProfiles(fakeStorage({ [LEGACY_RULES_KEY]: '{"rules": 5' })));
     expect(state.profiles[0].ruleTree).toEqual(defaultRules());
-  });
-});
-
-describe('setActiveProfile writes', () => {
-  it('should only write the index', async () => {
-    const storage = fakeStorage();
-    const [a, b] = [newProfile('A'), newProfile('B')];
-    await Effect.runPromise(saveProfiles(storage, { activeId: a.id, profiles: [a, b] }));
-    const set = vi.spyOn(storage, 'set');
-
-    await Effect.runPromise(setActiveProfile(storage, b.id));
-    expect(set).toHaveBeenCalledTimes(1);
-    expect(Object.keys(set.mock.calls[0][0])).toEqual([INDEX_KEY]);
-  });
-});
-
-describe('resolveActiveId', () => {
-  const ids = ['a', 'b', 'c'];
-
-  it('should keep a change made on lichess in the meantime', () => {
-    expect(resolveActiveId({ loaded: 'a', local: 'a', stored: 'b', ids })).toBe('b');
-  });
-
-  it('should prefer a change made on the page itself', () => {
-    expect(resolveActiveId({ loaded: 'a', local: 'c', stored: 'b', ids })).toBe('c');
-  });
-
-  it('should ignore a stored profile that does not exist (anymore)', () => {
-    expect(resolveActiveId({ loaded: 'a', local: 'a', stored: 'gone', ids })).toBe('a');
   });
 });
 
@@ -233,7 +178,6 @@ describe('profiles saved by version 2.x (before the rename)', () => {
     const before = structuredClone(storage.data);
     const state = await run(loadProfiles(storage));
     await run(saveProfiles(storage, { activeId: 'a', profiles: [{ ...state.profiles[0], name: 'Renamed' }] }));
-    await run(setActiveProfile(storage, 'a'));
 
     expect(Object.fromEntries(Object.entries(storage.data).filter(([key]) => key in before))).toEqual(before);
     expect((await run(loadProfiles(storage))).profiles.map(p => p.name)).toEqual(['Renamed']);

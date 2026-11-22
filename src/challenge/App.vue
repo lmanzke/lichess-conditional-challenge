@@ -10,7 +10,7 @@
         <pre class="tooltip">{{ describeRule(getActiveProfile(state).ruleTree, t) }}</pre>
       </span>
     </label>
-    <button :disabled="busy" @click="run(acceptMatchingChallenge(container))">{{ t('challenge.acceptMatching') }}</button>
+    <button :disabled="busy" @click="run(acceptMatchingChallenge)">{{ t('challenge.acceptMatching') }}</button>
     <button :disabled="busy" @click="declineAll">{{ t('challenge.declineUnmatching') }}</button>
     <button v-if="devMode" @click="logInfoClicked">Log info</button>
     <p v-if="status" class="status" :class="{ error: status.error }" role="status">{{ status.text }}</p>
@@ -22,10 +22,11 @@ import { Effect } from 'effect';
 import { ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import type { Lichess } from '@/challenge/lichess-api';
+import { ChallengeInbox } from '@/challenge/inbox';
 import { acceptMatchingChallenge, declineUnmatchingChallenges, logInfo, NoMatchingChallenge, type ActionResult } from '@/challenge/actions';
 import { getActiveProfile } from '@/challenge/profiles';
 import { useProfiles } from '@/challenge/useProfiles';
-import { describeRule } from '@/options/fields';
+import { describeRule } from '@/challenge/rule-tree';
 
 const props = defineProps<{
   container: HTMLElement;
@@ -39,6 +40,9 @@ const { state, select } = useProfiles();
 const busy = ref(false);
 const status = ref<{ text: string; error: boolean }>();
 let clearStatus: ReturnType<typeof setTimeout> | undefined;
+
+// The inbox is the challenge menu this component sits in.
+const inbox = () => ChallengeInbox.layerPage(props.container);
 
 const show = (text: string, error = false) => {
   status.value = { text, error };
@@ -54,10 +58,10 @@ const describeError = (error: unknown) => {
   return t('challenge.failed', { reason: error instanceof Error ? error.message : String(error) });
 };
 
-const run = async (effect: Effect.Effect<ActionResult, Error, Lichess>) => {
+const run = async (effect: Effect.Effect<ActionResult, Error, Lichess | ChallengeInbox>) => {
   busy.value = true;
   try {
-    show(describeResult(await props.runEffect(effect)));
+    show(describeResult(await props.runEffect(effect.pipe(Effect.provide(inbox())))));
   } catch (error) {
     show(describeError(error), !(error instanceof NoMatchingChallenge));
   } finally {
@@ -67,10 +71,10 @@ const run = async (effect: Effect.Effect<ActionResult, Error, Lichess>) => {
 
 // Declining cannot be undone, so it has to be confirmed.
 const declineAll = () => {
-  if (confirm(t('challenge.confirmDecline'))) void run(declineUnmatchingChallenges(props.container));
+  if (confirm(t('challenge.confirmDecline'))) void run(declineUnmatchingChallenges);
 };
 
-const logInfoClicked = () => void props.runEffect(logInfo(props.container)).then(console.log, console.error);
+const logInfoClicked = () => void props.runEffect(logInfo.pipe(Effect.provide(inbox()))).then(console.log, console.error);
 </script>
 
 <style>

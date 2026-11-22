@@ -1,19 +1,17 @@
 import { Effect, Layer } from 'effect';
+import { ChallengeInbox } from '@/challenge/inbox';
 import { Lichess } from '@/challenge/lichess-api';
 import type { StorageArea } from '@/challenge/profiles';
-import type { Challenge, Spec } from '@/challenge/types';
+import type { Challenge, DeclineReason, Spec } from '@/challenge/types';
 
 export const makeChallenge = (overrides: Partial<Challenge> = {}): Challenge => ({
   id: 'OheaU77B',
-  userLink: '/@/user-1',
   username: 'user-1',
   color: 'random',
   challenger: { rating: 1600, id: 'user-1' },
   rated: false,
   timeControl: { type: 'clock', limit: 300, increment: 3 },
   variant: { key: 'standard' },
-  accept: () => {},
-  decline: () => {},
   ...overrides,
 });
 
@@ -50,4 +48,19 @@ export const fakeStorage = (initial: Record<string, unknown> = {}): StorageArea 
     set: async items => void Object.assign(data, structuredClone(items)),
     remove: async keys => void keysOf(keys).forEach(key => delete data[key]),
   };
+};
+
+/** An inbox without a page: it holds the given challenges and remembers what was done with them. */
+export const fakeInbox = (challenges: ReadonlyArray<Challenge>) => {
+  const accepted: string[] = [];
+  const declined: Array<[string, DeclineReason]> = [];
+  const layer = Layer.succeed(
+    ChallengeInbox,
+    ChallengeInbox.of({
+      incoming: Effect.succeed(challenges),
+      accept: id => Effect.sync(() => void accepted.push(id)),
+      decline: (id, reason) => Effect.sync(() => void declined.push([id, reason])),
+    })
+  );
+  return { layer, accepted, declined };
 };

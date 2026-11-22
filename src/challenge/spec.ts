@@ -1,5 +1,7 @@
 import { Effect } from 'effect';
-import { DeclineReason, type Combinator, type Spec } from '@/challenge/types';
+import { findField } from '@/challenge/fields';
+import { compare, mapRelation } from '@/challenge/relations';
+import { DeclineReason, isRuleGroup, type Combinator, type Rule, type RuleNode, type Spec } from '@/challenge/types';
 
 export const anySpec: Spec = () => Effect.succeed({ isSatisfied: true });
 export const noneSpec: Spec = () => Effect.succeed({ isSatisfied: false, silent: false, reason: DeclineReason.RULE_FAILED });
@@ -18,3 +20,15 @@ export const orSpec =
 
 /** Folds specs with the combinator. Empty AND is always satisfied, empty OR never. */
 export const combineSpecs = (combinator: Combinator, specs: Spec[]): Spec => (combinator === 'AND' ? specs.reduce(andSpec, anySpec) : specs.reduce(orSpec, noneSpec));
+
+/** A rule is satisfied if the relation holds between the field of the challenge and the value of the rule. */
+const ruleSpec = (rule: Rule): Spec => {
+  const field = findField(rule.field);
+  const value = field.coerce(rule.value);
+  const holds = compare(mapRelation(rule.relation))(value);
+
+  return challenge =>
+    Effect.map(field.test(challenge, holds), satisfied => (satisfied ? { isSatisfied: true } : { isSatisfied: false, silent: rule.silent, reason: field.declineReason(value) }));
+};
+
+export const convertRule = (node: RuleNode): Spec => (isRuleGroup(node) ? combineSpecs(node.combinator, node.children.map(convertRule)) : ruleSpec(node));

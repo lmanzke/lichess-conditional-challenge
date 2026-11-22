@@ -1,5 +1,5 @@
 import type { Effect } from 'effect';
-import type { Challenger, TimeControl, Variant } from '@/challenge/lichess-schemas';
+import type { LiChessChallenge } from '@/challenge/lichess-schemas';
 import type { Lichess } from '@/challenge/lichess-api';
 
 export enum DeclineReason {
@@ -19,45 +19,16 @@ export type RuleValueType = string | number | boolean | string[];
 /** What the options page stores; 'between' rules hold two numbers. */
 export type RuleValue = RuleValueType | number[];
 
-/** The properties of a challenge that a rule can look at. */
-export enum Field {
-  TEAM_NAME = 'team-name',
-  ENCOUNTERS = 'encounters',
-  ENCOUNTERS_TODAY = 'encountersToday',
-  RATING = 'rating',
-  RATED = 'rated',
-  PROVISIONAL = 'provisional',
-  VARIANT = 'variant',
-  USER_ID = 'user-id',
-  TIMECONTROL_TYPE = 'timecontrolType',
-  LIMIT_SECONDS = 'limitSeconds',
-  INCREMENT_SECONDS = 'incrementSeconds',
-  CHALLENGE_COLOR = 'challengeColor',
-}
-
 export type SatisfiedSpecResult = { isSatisfied: true };
 export type UnsatisfiedSpecResult = { isSatisfied: false; silent: boolean; reason: DeclineReason };
 export type SpecResult = SatisfiedSpecResult | UnsatisfiedSpecResult;
-
-export type ChallengeInfo = (SatisfiedSpecResult | UnsatisfiedSpecResult) & { challenge: Challenge };
-export type UnsatisfyingChallengeInfo = UnsatisfiedSpecResult & { challenge: Challenge };
 
 export type Spec = (challenge: Challenge) => Effect.Effect<SpecResult, Error, Lichess>;
 
 export type { Challenger, DasherInfo, LiChessChallenge, Matchup, Team, TimeControl, Variant } from '@/challenge/lichess-schemas';
 
-export interface Challenge {
-  id: string;
-  userLink: string;
-  username: string;
-  color: string;
-  challenger: Challenger;
-  rated: boolean;
-  timeControl: TimeControl;
-  variant: Variant;
-  accept: () => void;
-  decline: (reason: DeclineReason) => void;
-}
+/** A challenge as lichess describes it, plus the name of the challenger. */
+export type Challenge = LiChessChallenge & { readonly username: string };
 
 export interface EncounterCount {
   total: number;

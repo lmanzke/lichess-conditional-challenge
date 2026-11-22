@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DeclineReason, type Rule } from '@/challenge/types';
-import { convertRule } from '@/challenge/lichess';
+import { convertRule } from '@/challenge/spec';
 import { makeChallenge, runSpec } from './helpers';
 
 const notInRule: Rule = { field: 'user-id', relation: 'not_in', value: 'user-1;user2', silent: false };
