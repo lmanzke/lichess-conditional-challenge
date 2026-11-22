@@ -10,9 +10,9 @@
       in {
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
-            nodejs_24 # npm is bundled; package.json requires node >=20
             zip
             git
+            bun
           ];
         };
       });

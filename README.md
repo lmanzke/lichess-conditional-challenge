@@ -27,13 +27,15 @@ It is a Manifest V3 extension built with Vite. The rule editor on the options pa
 
 # Development
 
+The toolchain is [Bun](https://bun.sh) (`nix develop` provides it).
+
 ```sh
-npm install
-npm run build        # production build into dist/ (load that folder as an unpacked extension)
-npm run watch        # development build that rebuilds on changes
-npm run build-zip    # build and zip for the web store into dist-zip/
-npm test             # vitest
-npm run typecheck && npm run lint
+bun install
+bun run build        # production build into dist/ (load that folder as an unpacked extension)
+bun run watch        # development build that rebuilds on changes
+bun run build-zip    # build and zip for the web store into dist-zip/
+bun run test         # vitest
+bun run typecheck && bun run lint
 ```
 
 # Usage
