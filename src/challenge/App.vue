@@ -3,11 +3,11 @@
     <label v-if="state && state.profiles.length > 1" class="profile">
       {{ t('profile.label') }}
       <select :value="state.activeId" @change="select(($event.target as HTMLSelectElement).value)">
-        <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.rules, t)">{{ profile.name }}</option>
+        <option v-for="profile in state.profiles" :key="profile.id" :value="profile.id" :title="describeRule(profile.ruleTree, t)">{{ profile.name }}</option>
       </select>
       <span class="info" tabindex="0" :aria-label="t('profile.rulesInfo')">
         ⓘ
-        <pre class="tooltip">{{ describeRule(getActiveProfile(state).rules, t) }}</pre>
+        <pre class="tooltip">{{ describeRule(getActiveProfile(state).ruleTree, t) }}</pre>
       </span>
     </label>
     <button :disabled="busy" @click="run(acceptMatchingChallenge(container))">{{ t('challenge.acceptMatching') }}</button>
@@ -25,7 +25,7 @@ import type { Lichess } from '@/challenge/lichess-api';
 import { acceptMatchingChallenge, declineUnmatchingChallenges, logInfo, NoMatchingChallenge, type ActionResult } from '@/challenge/actions';
 import { getActiveProfile } from '@/challenge/profiles';
 import { useProfiles } from '@/challenge/useProfiles';
-import { describeRule } from '@/options/filters';
+import { describeRule } from '@/options/fields';
 
 const props = defineProps<{
   container: HTMLElement;

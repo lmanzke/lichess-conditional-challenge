@@ -1,4 +1,4 @@
-import { compare, lessThan, numberComparison, ordOptionNumber, Relation, toNumber } from '@/challenge/operators';
+import { compare, lessThan, numberComparison, ordOptionNumber, Relation, toNumber } from '@/challenge/relations';
 import { Option } from 'effect';
 import { describe, expect, it } from 'vitest';
 

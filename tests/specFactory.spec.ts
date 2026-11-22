@@ -1,16 +1,17 @@
 import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { Relation } from '@/challenge/operators';
+import { Relation } from '@/challenge/relations';
 import { convertRule, encounterSpec, teamSpec } from '@/challenge/lichess';
-import { DeclineReason, type Rule, type Team } from '@/challenge/types';
+import { DeclineReason, type Combinator, type Rule, type RuleGroup, type Team } from '@/challenge/types';
 import { makeChallenge, runSpec } from './helpers';
 
 const team = (id: string): Team => ({ id, name: id, nbMembers: 1 });
 
-const rule = (overrides: Partial<Rule>): Rule => ({ condition: undefined, id: 'rating', operator: 'equal', rules: [], value: '', silent: false, ...overrides });
+const rule = (overrides: Partial<Rule>): Rule => ({ field: 'rating', relation: 'equal', value: '', silent: false, ...overrides });
+const group = (combinator: Combinator, children: RuleGroup['children']): RuleGroup => ({ combinator, children });
 
 describe('teamSpec', () => {
-  it('should work for an IN operator', async () => {
+  it('should work for an IN relation', async () => {
     const teamsOf = vi.fn(() => Effect.succeed([team('team1')]));
     await expect(runSpec(teamSpec('team1', Relation.IN), makeChallenge({ username: 'someone' }), { teamsOf })).resolves.toEqual({ isSatisfied: true });
     expect(teamsOf).toHaveBeenCalledWith('someone');
@@ -39,13 +40,13 @@ describe('encounterSpec', () => {
 
 describe('convertRule', () => {
   it('should decline rated rules with the matching reason and keep the silent flag', async () => {
-    const result = await runSpec(convertRule(rule({ id: 'rated', value: 1, silent: true })), makeChallenge({ rated: false }));
+    const result = await runSpec(convertRule(rule({ field: 'rated', value: 1, silent: true })), makeChallenge({ rated: false }));
     expect(result).toEqual({ isSatisfied: false, silent: true, reason: DeclineReason.ONLY_RATED });
   });
 
   it('should match challengers by their provisional rating, a missing flag meaning established', async () => {
-    const provisional = rule({ id: 'provisional', value: 1 });
-    const established = rule({ id: 'provisional', value: 0 });
+    const provisional = rule({ field: 'provisional', value: 1 });
+    const established = rule({ field: 'provisional', value: 0 });
     const newcomer = makeChallenge({ challenger: { rating: 1500, id: 'new', provisional: true } });
     const regular = makeChallenge({ challenger: { rating: 1500, id: 'old', provisional: false } });
     const unknown = makeChallenge();
@@ -59,25 +60,24 @@ describe('convertRule', () => {
 
   it('should decline variants depending on the allowed variants', async () => {
     const challenge = makeChallenge({ variant: { key: 'atomic' } });
-    expect(await runSpec(convertRule(rule({ id: 'variant', operator: 'in', value: ['standard'] })), challenge)).toMatchObject({ reason: DeclineReason.NO_VARIANTS });
-    expect(await runSpec(convertRule(rule({ id: 'variant', operator: 'in', value: ['standard', 'horde'] })), challenge)).toMatchObject({ reason: DeclineReason.NOT_THIS_VARIANT });
+    expect(await runSpec(convertRule(rule({ field: 'variant', relation: 'in', value: ['standard'] })), challenge)).toMatchObject({ reason: DeclineReason.NO_VARIANTS });
+    expect(await runSpec(convertRule(rule({ field: 'variant', relation: 'in', value: ['standard', 'horde'] })), challenge)).toMatchObject({
+      reason: DeclineReason.NOT_THIS_VARIANT,
+    });
   });
 
   it('should parse string values of numeric rules', async () => {
-    const result = await runSpec(convertRule(rule({ id: 'rating', operator: 'between', value: ['1500', '1700'] })), makeChallenge());
+    const result = await runSpec(convertRule(rule({ field: 'rating', relation: 'between', value: ['1500', '1700'] })), makeChallenge());
     expect(result).toEqual({ isSatisfied: true });
   });
 
   it('should not request anything for the second operand of a satisfied OR', async () => {
-    const group = rule({ condition: 'OR', rules: [rule({ operator: 'greater', value: '1000' }), rule({ id: 'team-name', value: 'x' })] });
-    await expect(runSpec(convertRule(group), makeChallenge())).resolves.toEqual({ isSatisfied: true });
+    const either = group('OR', [rule({ relation: 'greater', value: '1000' }), rule({ field: 'team-name', value: 'x' })]);
+    await expect(runSpec(convertRule(either), makeChallenge())).resolves.toEqual({ isSatisfied: true });
   });
 
   it('should combine AND groups, failing with the first unsatisfied rule', async () => {
-    const group = rule({
-      condition: 'AND',
-      rules: [rule({ operator: 'greater', value: '1000' }), rule({ operator: 'less', value: '1000' }), rule({ id: 'team-name', value: 'x' })],
-    });
-    await expect(runSpec(convertRule(group), makeChallenge())).resolves.toMatchObject({ isSatisfied: false });
+    const both = group('AND', [rule({ relation: 'greater', value: '1000' }), rule({ relation: 'less', value: '1000' }), rule({ field: 'team-name', value: 'x' })]);
+    await expect(runSpec(convertRule(both), makeChallenge())).resolves.toMatchObject({ isSatisfied: false });
   });
 });

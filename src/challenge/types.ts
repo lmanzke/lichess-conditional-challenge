@@ -19,7 +19,8 @@ export type RuleValueType = string | number | boolean | string[];
 /** What the options page stores; 'between' rules hold two numbers. */
 export type RuleValue = RuleValueType | number[];
 
-export enum RuleType {
+/** The properties of a challenge that a rule can look at. */
+export enum Field {
   TEAM_NAME = 'team-name',
   ENCOUNTERS = 'encounters',
   ENCOUNTERS_TODAY = 'encountersToday',
@@ -63,11 +64,23 @@ export interface EncounterCount {
   today: number;
 }
 
+/** A leaf of the rule tree: compares one field of a challenge with a value. */
 export type Rule = {
-  readonly condition?: string | undefined;
-  readonly rules: ReadonlyArray<Rule>;
-  readonly id: string;
+  readonly field: string;
+  /** The code of a relation, see `mapRelation`. */
+  readonly relation: string;
   readonly value: RuleValue;
-  readonly operator: string;
   readonly silent: boolean;
 };
+
+export type Combinator = 'AND' | 'OR';
+
+/** An inner node of the rule tree: joins its children with a combinator. */
+export type RuleGroup = {
+  readonly combinator: Combinator;
+  readonly children: ReadonlyArray<RuleNode>;
+};
+
+export type RuleNode = Rule | RuleGroup;
+
+export const isRuleGroup = (node: RuleNode): node is RuleGroup => 'combinator' in node;

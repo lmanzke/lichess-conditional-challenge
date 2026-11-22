@@ -13,8 +13,11 @@ export enum Relation {
   BETWEEN = 'BETW',
 }
 
-export const mapOperator = (operator: string): Relation => {
-  switch (operator) {
+/** How relations are written down in stored rules. */
+export type RelationCode = 'equal' | 'not_equal' | 'in' | 'not_in' | 'less' | 'less_or_equal' | 'greater' | 'greater_or_equal' | 'between';
+
+export const mapRelation = (code: string): Relation => {
+  switch (code) {
     case 'less':
       return Relation.LESS_THAN;
     case 'less_or_equal':
