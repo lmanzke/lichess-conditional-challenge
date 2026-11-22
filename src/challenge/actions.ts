@@ -1,9 +1,9 @@
 import { Data, Effect, Random } from 'effect';
-import { Lichess } from '@/challenge/lichess-api';
-import { getChallengeElement, getChallenges } from '@/challenge/lichess';
+import { ChallengeInbox } from '@/challenge/inbox';
+import type { Lichess } from '@/challenge/lichess-api';
 import { convertRule } from '@/challenge/spec';
 import { getLichessPrefs } from '@/challenge/storage';
-import type { Challenge, Spec, UnsatisfyingChallengeInfo } from '@/challenge/types';
+import { triageAll, triageUntilMatch, type Declination } from '@/challenge/triage';
 
 export class NoMatchingChallenge extends Data.TaggedError('NoMatchingChallenge')<{ readonly message: string }> {
   constructor() {
@@ -13,55 +13,47 @@ export class NoMatchingChallenge extends Data.TaggedError('NoMatchingChallenge')
 
 export type ActionResult = { readonly kind: 'accepted' } | { readonly kind: 'declined'; readonly count: number };
 
-/** Reads the configured rules and the challenges currently shown in `container`. */
-const loadSpecAndChallenges = (container: HTMLElement) =>
+type Needs = Lichess | ChallengeInbox;
+
+/** Reads the configured rules and the challenges currently in the inbox. */
+const loadSpecAndChallenges = Effect.gen(function* () {
+  const rule = yield* getLichessPrefs;
+  const inbox = yield* ChallengeInbox;
+  return { inbox, spec: convertRule(rule), challenges: yield* inbox.incoming };
+});
+
+const decline = (declinations: ReadonlyArray<Declination>) =>
   Effect.gen(function* () {
-    const rule = yield* getLichessPrefs;
-    const element = yield* getChallengeElement(container);
-    return { spec: convertRule(rule), challenges: yield* getChallenges(element) };
+    const inbox = yield* ChallengeInbox;
+    yield* Effect.forEach(declinations, ({ challenge, reason }) => inbox.decline(challenge.id, reason));
   });
 
 /**
  * Goes through the challenges in random order and accepts the first one that matches.
- * Non-matching challenges are declined on the way, unless the failed rule is silent.
+ * Non-matching challenges seen on the way are declined, unless the failed rule is silent.
  */
-export const findMatchingChallenge = (spec: Spec, challenges: Challenge[]): Effect.Effect<Challenge, Error | NoMatchingChallenge, Lichess> =>
-  Effect.gen(function* () {
-    for (const challenge of yield* Random.shuffle(challenges)) {
-      const result = yield* spec(challenge);
+export const acceptMatchingChallenge: Effect.Effect<ActionResult, Error | NoMatchingChallenge, Needs> = Effect.gen(function* () {
+  const { inbox, spec, challenges } = yield* loadSpecAndChallenges;
+  const { match, declined } = yield* triageUntilMatch(spec, yield* Random.shuffle(challenges));
 
-      if (result.isSatisfied) {
-        return challenge;
-      }
-      if (!result.silent) {
-        challenge.decline(result.reason);
-      }
-    }
-
+  yield* decline(declined);
+  if (!match) {
     return yield* new NoMatchingChallenge();
-  });
+  }
+  yield* inbox.accept(match.id);
+  return { kind: 'accepted' };
+});
 
-export const acceptMatchingChallenge = (container: HTMLElement): Effect.Effect<ActionResult, Error, Lichess> =>
-  Effect.gen(function* () {
-    const { spec, challenges } = yield* loadSpecAndChallenges(container);
-    const challenge = yield* findMatchingChallenge(spec, challenges);
-    challenge.accept();
-    return { kind: 'accepted' };
-  });
+export const declineUnmatchingChallenges: Effect.Effect<ActionResult, Error, Needs> = Effect.gen(function* () {
+  const { spec, challenges } = yield* loadSpecAndChallenges;
+  const declined = yield* triageAll(spec, challenges);
 
-export const declineUnmatchingChallenges = (container: HTMLElement): Effect.Effect<ActionResult, Error, Lichess> =>
-  Effect.gen(function* () {
-    const { spec, challenges } = yield* loadSpecAndChallenges(container);
-    const results = yield* Effect.forEach(challenges, challenge => Effect.map(spec(challenge), result => ({ ...result, challenge })), { concurrency: 4 });
-    const toDecline = results.filter((info): info is UnsatisfyingChallengeInfo => !info.isSatisfied && !info.silent);
+  yield* decline(declined);
+  return { kind: 'declined', count: declined.length };
+});
 
-    toDecline.forEach(info => info.challenge.decline(info.reason));
-    return { kind: 'declined', count: toDecline.length };
-  });
-
-export const logInfo = (container: HTMLElement) =>
-  Effect.gen(function* () {
-    const rules = yield* getLichessPrefs;
-    const { challenges } = yield* loadSpecAndChallenges(container);
-    return { rules, challenges };
-  });
+export const logInfo = Effect.gen(function* () {
+  const rules = yield* getLichessPrefs;
+  const { challenges } = yield* loadSpecAndChallenges;
+  return { rules, challenges };
+});

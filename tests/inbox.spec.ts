@@ -1,6 +1,6 @@
-import { Effect } from 'effect';
+import { Effect, Layer } from 'effect';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getChallengeElement, getChallenges } from '@/challenge/lichess';
+import { ChallengeInbox, getChallengeElement } from '@/challenge/inbox';
 import { DeclineReason, type LiChessChallenge } from '@/challenge/types';
 import { lichessLayer } from './helpers';
 
@@ -21,10 +21,19 @@ const challengeHtml = (id: string, user: string) => `
     <select class="decline-reason"><option value="ruleFailed"></option><option value="rated"></option></select>
   </div>`;
 
-const load = (container: HTMLElement, incoming: LiChessChallenge[]) =>
-  Effect.runPromise(getChallenges(container).pipe(Effect.provide(lichessLayer({ incomingChallenges: Effect.succeed(incoming) }))));
+/** The inbox of a page, with the challenges the lichess API returns. */
+const pageInbox = (container: HTMLElement, incoming: LiChessChallenge[]) =>
+  Effect.gen(function* () {
+    return yield* ChallengeInbox;
+  }).pipe(Effect.provide(ChallengeInbox.layerPage(container).pipe(Layer.provide(lichessLayer({ incomingChallenges: Effect.succeed(incoming) })))));
 
-describe('getChallenges', () => {
+const load = async (container: HTMLElement, incoming: LiChessChallenge[]) => {
+  const inbox = await Effect.runPromise(pageInbox(container, incoming));
+  const challenges = await Effect.runPromise(inbox.incoming);
+  return { inbox, challenges };
+};
+
+describe('ChallengeInbox.layerPage', () => {
   let container: HTMLElement;
   beforeEach(() => {
     document.body.innerHTML = `<div id="root"><div class="challenges">${challengeHtml('abc', 'Bob')}${challengeHtml('def', 'Alice')}<div class="challenge"><p>no link</p></div></div></div>`;
@@ -32,41 +41,50 @@ describe('getChallenges', () => {
   });
 
   it('should combine the elements with the data from the API', async () => {
-    const challenges = await load(container, [remote('abc'), remote('def')]);
+    const { challenges } = await load(container, [remote('abc'), remote('def')]);
 
-    expect(challenges.map(c => [c.id, c.username, c.userLink])).toEqual([
-      ['abc', 'Bob', '/@/Bob'],
-      ['def', 'Alice', '/@/Alice'],
+    expect(challenges.map(c => [c.id, c.username])).toEqual([
+      ['abc', 'Bob'],
+      ['def', 'Alice'],
     ]);
     expect(challenges[0].challenger.rating).toBe(1800);
   });
 
   it('should skip challenges the API does not know', async () => {
-    expect((await load(container, [remote('def')])).map(c => c.id)).toEqual(['def']);
+    expect((await load(container, [remote('def')])).challenges.map(c => c.id)).toEqual(['def']);
   });
 
   it('should click the buttons of the matching element', async () => {
-    const [bob, alice] = await load(container, [remote('abc'), remote('def')]);
+    const { inbox } = await load(container, [remote('abc'), remote('def')]);
     const [bobAccept, aliceDecline] = [container.querySelectorAll('.accept')[0], container.querySelectorAll('.decline')[1]];
     const listeners = vi.fn();
     bobAccept.addEventListener('click', () => listeners('bob accepted'));
     aliceDecline.addEventListener('click', () => listeners('alice declined'));
 
-    bob.accept();
-    alice.decline(DeclineReason.RULE_FAILED);
+    await Effect.runPromise(inbox.accept('abc'));
+    await Effect.runPromise(inbox.decline('def', DeclineReason.RULE_FAILED));
 
     expect(listeners.mock.calls).toEqual([['bob accepted'], ['alice declined']]);
   });
 
   it('should pick a decline reason via the select', async () => {
-    const [bob] = await load(container, [remote('abc')]);
+    const { inbox } = await load(container, [remote('abc')]);
     const select = container.querySelector('.decline-reason') as HTMLSelectElement;
     const changed = vi.fn(() => select.value);
     select.addEventListener('change', changed);
 
-    bob.decline(DeclineReason.ONLY_RATED);
+    await Effect.runPromise(inbox.decline('abc', DeclineReason.ONLY_RATED));
 
     expect(changed).toHaveReturnedWith('rated');
+  });
+});
+
+describe('acting on a challenge that is not in the menu', () => {
+  it('should fail', async () => {
+    document.body.innerHTML = `<div id="root"><div class="challenges">${challengeHtml('abc', 'Bob')}</div></div>`;
+    const { inbox } = await load(document.getElementById('root') as HTMLElement, [remote('abc')]);
+
+    await expect(Effect.runPromise(inbox.accept('gone'))).rejects.toThrow('not in the challenge menu');
   });
 });
 
