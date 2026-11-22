@@ -14,8 +14,8 @@
     "typecheck": "vue-tsc --noEmit",
     "lint": "eslint src tests",
     "lint-fix": "eslint --fix src tests",
-    "prettier": "prettier --check \"{src,tests}/**/*.{ts,vue,css}\"",
-    "prettier:write": "prettier --write \"{src,tests}/**/*.{ts,vue,css}\"",
+    "format:check": "bun fmt --check src tests",
+    "format": "bun fmt src tests",
     "test": "vitest run"
   },
   "dependencies": {
@@ -36,7 +36,6 @@
     "eslint-plugin-vue": "^10.11.1",
     "globals": "^17.13.0",
     "jsdom": "^30.1.3",
-    "prettier": "^3.9.10",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.72.0",
     "vite": "^8.3.4",
