@@ -2,6 +2,9 @@ import { Context, Effect, Layer, Option } from 'effect';
 import { Lichess } from '@/challenge/lichess-api';
 import { DeclineReason, type Challenge, type LiChessChallenge } from '@/challenge/types';
 
+/** The elements of a challenge in the lichess menu that answer it. */
+type ChallengeControls = { readonly accept: HTMLButtonElement; readonly decline: HTMLButtonElement; readonly reason: HTMLSelectElement };
+
 /** The challenges a player has received, and what can be done with them. */
 export class ChallengeInbox extends Context.Service<
   ChallengeInbox,
@@ -21,9 +24,9 @@ export class ChallengeInbox extends Context.Service<
       ChallengeInbox,
       Effect.gen(function* () {
         const lichess = yield* Lichess;
-        const controls = new Map<string, { accept: HTMLButtonElement; decline: HTMLButtonElement; reason: HTMLSelectElement }>();
+        const controls = new Map<string, ChallengeControls>();
 
-        const controlsOf = (id: string) =>
+        const controlsOf = (id: string): Effect.Effect<ChallengeControls, Error> =>
           Option.match(Option.fromNullishOr(controls.get(id)), {
             onNone: () => Effect.fail(new Error(`Challenge ${id} is not in the challenge menu`)),
             onSome: Effect.succeed,
