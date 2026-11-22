@@ -1,6 +1,7 @@
 import { Data, Effect, Random } from 'effect';
 import { Lichess } from '@/challenge/lichess-api';
-import { convertRule, getChallengeElement, getChallenges } from '@/challenge/lichess';
+import { getChallengeElement, getChallenges } from '@/challenge/lichess';
+import { convertRule } from '@/challenge/spec';
 import { getLichessPrefs } from '@/challenge/storage';
 import type { Challenge, Spec, UnsatisfyingChallengeInfo } from '@/challenge/types';
 

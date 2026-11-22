@@ -68,7 +68,7 @@ import { useI18n } from 'vue-i18n';
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
 import { defaultRules, exportProfiles, loadProfiles, newProfile, parseImport, resolveActiveId, saveProfiles, type Profile, type ProfileState } from '@/challenge/profiles';
 import type { RuleNode as RuleNodeData } from '@/challenge/types';
-import { countIssues, describeRule } from './fields';
+import { countIssues, describeRule } from '@/challenge/rule-tree';
 import AppIcon from './AppIcon.vue';
 import RuleNode from './RuleNode.vue';
 

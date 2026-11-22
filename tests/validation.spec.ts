@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { clampNumber, countIssues, findField, newGroup, newRule, ruleIssue } from '@/options/fields';
+import { clampNumber, findField } from '@/challenge/fields';
+import { countIssues, newGroup, newRule, ruleIssue } from '@/challenge/rule-tree';
 import type { Rule, RuleGroup } from '@/challenge/types';
 import { defaultRules } from '@/challenge/profiles';
 

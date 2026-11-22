@@ -19,22 +19,6 @@ export type RuleValueType = string | number | boolean | string[];
 /** What the options page stores; 'between' rules hold two numbers. */
 export type RuleValue = RuleValueType | number[];
 
-/** The properties of a challenge that a rule can look at. */
-export enum Field {
-  TEAM_NAME = 'team-name',
-  ENCOUNTERS = 'encounters',
-  ENCOUNTERS_TODAY = 'encountersToday',
-  RATING = 'rating',
-  RATED = 'rated',
-  PROVISIONAL = 'provisional',
-  VARIANT = 'variant',
-  USER_ID = 'user-id',
-  TIMECONTROL_TYPE = 'timecontrolType',
-  LIMIT_SECONDS = 'limitSeconds',
-  INCREMENT_SECONDS = 'incrementSeconds',
-  CHALLENGE_COLOR = 'challengeColor',
-}
-
 export type SatisfiedSpecResult = { isSatisfied: true };
 export type UnsatisfiedSpecResult = { isSatisfied: false; silent: boolean; reason: DeclineReason };
 export type SpecResult = SatisfiedSpecResult | UnsatisfiedSpecResult;

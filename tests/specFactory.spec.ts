@@ -1,7 +1,6 @@
 import { Effect } from 'effect';
 import { describe, expect, it, vi } from 'vitest';
-import { Relation } from '@/challenge/relations';
-import { convertRule, encounterSpec, teamSpec } from '@/challenge/lichess';
+import { convertRule } from '@/challenge/spec';
 import { DeclineReason, type Combinator, type Rule, type RuleGroup, type Team } from '@/challenge/types';
 import { makeChallenge, runSpec } from './helpers';
 
@@ -10,31 +9,40 @@ const team = (id: string): Team => ({ id, name: id, nbMembers: 1 });
 const rule = (overrides: Partial<Rule>): Rule => ({ field: 'rating', relation: 'equal', value: '', silent: false, ...overrides });
 const group = (combinator: Combinator, children: RuleGroup['children']): RuleGroup => ({ combinator, children });
 
-describe('teamSpec', () => {
+describe('team rules', () => {
   it('should work for an IN relation', async () => {
     const teamsOf = vi.fn(() => Effect.succeed([team('team1')]));
-    await expect(runSpec(teamSpec('team1', Relation.IN), makeChallenge({ username: 'someone' }), { teamsOf })).resolves.toEqual({ isSatisfied: true });
+    await expect(runSpec(convertRule(rule({ field: 'team-name', relation: 'in', value: 'team1' })), makeChallenge({ username: 'someone' }), { teamsOf })).resolves.toEqual({
+      isSatisfied: true,
+    });
     expect(teamsOf).toHaveBeenCalledWith('someone');
   });
 
   it('should fail for teams that do not match', async () => {
-    const result = await runSpec(teamSpec('team2', Relation.IN), makeChallenge(), { teamsOf: () => Effect.succeed([team('team1')]) });
+    const result = await runSpec(convertRule(rule({ field: 'team-name', relation: 'in', value: 'team2' })), makeChallenge(), { teamsOf: () => Effect.succeed([team('team1')]) });
     expect(result).toEqual({ isSatisfied: false, silent: false, reason: DeclineReason.RULE_FAILED });
   });
 });
 
-describe('encounterSpec', () => {
+describe('encounter rules', () => {
   it('should compare against the total number of games with the current user', async () => {
     const crosstable = vi.fn(() => Effect.succeed({ nbGames: 4, users: {} }));
     const overrides = { currentUserId: Effect.succeed('me'), crosstable };
+    const encounters = (relation: string) => convertRule(rule({ field: 'encounters', relation, value: 3 }));
 
-    await expect(runSpec(encounterSpec(3, Relation.GREATER_THAN), makeChallenge({ username: 'other' }), overrides)).resolves.toEqual({ isSatisfied: true });
-    await expect(runSpec(encounterSpec(3, Relation.LESS_THAN), makeChallenge({ username: 'other' }), overrides)).resolves.toEqual({
+    await expect(runSpec(encounters('greater'), makeChallenge({ username: 'other' }), overrides)).resolves.toEqual({ isSatisfied: true });
+    await expect(runSpec(encounters('less'), makeChallenge({ username: 'other' }), overrides)).resolves.toEqual({
       isSatisfied: false,
       silent: false,
       reason: DeclineReason.RULE_FAILED,
     });
     expect(crosstable).toHaveBeenCalledWith('other', 'me');
+  });
+
+  it('should compare against the games of the day for encountersToday', async () => {
+    const overrides = { currentUserId: Effect.succeed('me'), crosstable: () => Effect.succeed({ nbGames: 4, matchup: { nbGames: 1 }, users: {} }) };
+
+    await expect(runSpec(convertRule(rule({ field: 'encountersToday', relation: 'equal', value: 1 })), makeChallenge(), overrides)).resolves.toEqual({ isSatisfied: true });
   });
 });
 

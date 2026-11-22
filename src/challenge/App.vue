@@ -25,7 +25,7 @@ import type { Lichess } from '@/challenge/lichess-api';
 import { acceptMatchingChallenge, declineUnmatchingChallenges, logInfo, NoMatchingChallenge, type ActionResult } from '@/challenge/actions';
 import { getActiveProfile } from '@/challenge/profiles';
 import { useProfiles } from '@/challenge/useProfiles';
-import { describeRule } from '@/options/fields';
+import { describeRule } from '@/challenge/rule-tree';
 
 const props = defineProps<{
   container: HTMLElement;
